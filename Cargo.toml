@@ -5,3 +5,9 @@ authors = ["Eric Rochester <eric.rochester@willowtreeapps.com>"]
 
 [dependencies]
 clap = "2.30.0"
+pest = "1.0.4"
+pest_derive = "1.0.4"
+failure = "0.1.1"
+failure_derive = "0.1.1"
+serde = "1.0.27"
+serde_derive = "1.0.27"

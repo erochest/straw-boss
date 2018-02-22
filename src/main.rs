@@ -12,12 +12,14 @@ fn main() {
 
 fn parse_args() -> PathBuf {
     let matches = app_from_crate!()
-        .arg(Arg::with_name("procfile")
-            .short("p")
-            .long("procfile")
-            .value_name("FILENAME")
-            .default_value("Procfile")
-            .help("The Procfile defining the services to run locally."))
+        .arg(
+            Arg::with_name("procfile")
+                .short("p")
+                .long("procfile")
+                .value_name("FILENAME")
+                .default_value("Procfile")
+                .help("The Procfile defining the services to run locally."),
+        )
         .get_matches();
 
     let pwd = env::current_dir().expect("Cannot get current directory.");
