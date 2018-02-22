@@ -17,15 +17,10 @@ use std::str::FromStr;
 
 pub fn run(procfile: PathBuf) {
     let f = File::open(&procfile).expect(&format!("Unable to open Procfile: {:?}", &procfile));
-    let reader = BufReader::new(f);
-    let services = reader
-        .lines()
-        .collect::<io::Result<Vec<String>>>()
-        .expect(&format!("Unable to read from Procfile: {:?}.", &procfile))
-        .into_iter()
-        .map(|s| s.parse())
-        .collect::<Result<Vec<service::Service>, failure::Error>>()
-        .expect("Unable to parse Procfile line.");
+    let services: Vec<service::Service> = service::read_procfile(f).expect(&format!(
+        "Unable to read data from Procfile: {:?}",
+        &procfile
+    ));
     let index = service::index_services(&services);
     let yaml = serde_yaml::to_string(&index).expect("Cannot convert index to YAML.");
 

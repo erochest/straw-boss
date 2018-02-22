@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::io;
+use std::io::{BufRead, Read};
 use std::iter::FromIterator;
 use std::str::FromStr;
 use failure::Error;
@@ -35,6 +37,19 @@ impl FromStr for Service {
 
 pub fn index_services(services: &[Service]) -> HashMap<String, &Service> {
     HashMap::from_iter(services.into_iter().map(|s| (s.name.clone(), s)))
+}
+
+pub fn read_procfile<R: io::Read>(input: R) -> Result<Vec<Service>, Error> {
+    let reader = io::BufReader::new(input);
+    let lines = reader
+        .lines()
+        .collect::<io::Result<Vec<String>>>()
+        .map_err(|err| format_err!("Unable to read from Procfile input: {:?}", err))?;
+
+    lines
+        .into_iter()
+        .map(|s| s.parse())
+        .collect::<Result<Vec<Service>, Error>>()
 }
 
 #[cfg(test)]
