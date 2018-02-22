@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate clap;
+extern crate straw_boss;
 
 use std::env;
 use std::path::PathBuf;
@@ -7,7 +8,7 @@ use clap::Arg;
 
 fn main() {
     let procfile = parse_args();
-    println!("PROCFILE = {:?}", &procfile);
+    straw_boss::run(procfile);
 }
 
 fn parse_args() -> PathBuf {
