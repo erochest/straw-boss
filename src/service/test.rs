@@ -44,7 +44,6 @@ mod service {
     }
 
     mod index_services {
-        use std::collections::HashMap;
         use super::super::super::{index_services, Service};
 
         #[test]

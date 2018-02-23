@@ -7,14 +7,19 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_yaml;
 
-mod service;
+pub mod service;
 
 use std::fs::File;
-use std::io;
-use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
-use std::str::FromStr;
 
+/// The main entry point to the straw_boss library and executable.
+///
+/// This parses a `Procfile` and prints out the information in it in a more explicit, YAML format.
+///
+/// # Arguments
+///
+/// * `procfile`: The path to a [`Procfile`](https://devcenter.heroku.com/articles/procfile)
+///   containing information about the services this straw boss should oversee.
 pub fn run(procfile: PathBuf) {
     let f = File::open(&procfile).expect(&format!("Unable to open Procfile: {:?}", &procfile));
     let services: Vec<service::Service> = service::read_procfile(f).expect(&format!(
