@@ -1,12 +1,19 @@
 use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::fmt::Debug;
 use std::io;
 use std::io::BufRead;
 use std::iter::FromIterator;
+use std::process::{Command, ExitStatus};
 use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::thread::{current, Builder, JoinHandle, ThreadId};
 use failure::Error;
+use shellwords;
 
 /// A service that the straw boss will manage.
-#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
 pub struct Service {
     /// The name/identifier for the service. This must be unique in the system.
     pub name: String,
@@ -41,6 +48,72 @@ impl Service {
             name: name.into(),
             command: command.into(),
         }
+    }
+
+    pub fn start(self) -> Result<ServiceManager, Error> {
+        ServiceManager::start(self)
+    }
+
+    fn run(self, tx: Sender<TaskResponse>, rx: Receiver<TaskMessage>) -> Result<(), Error> {
+        let name = self.name.clone();
+        let mut command = Command::try_from(self)?;
+        let mut child = command
+            .spawn()
+            .map_err(|err| format_err!("Error spawning service {}: {:?}", &name, &err))?;
+
+        for message in rx.recv() {
+            match message {
+                TaskMessage::Join => {
+                    let exit_status = child.wait().map_err(|err| {
+                        format_err!(
+                            "Unable to kill child {} to join the task: {:?}",
+                            &name,
+                            &err
+                        )
+                    });
+                    tx.send(TaskResponse::Joined(exit_status)).map_err(|err| {
+                        format_err!(
+                            "Unable to send exit status for reporting {}: {:?}",
+                            &name,
+                            &err
+                        )
+                    })?;
+                    return Ok(());
+                }
+                TaskMessage::ThreadId => {
+                    let thread_id = current().id();
+                    tx.send(TaskResponse::ThreadId(thread_id)).map_err(|err| {
+                        format_err!("Unable to send {} thread-id response: {:?}", &name, &err)
+                    })?;
+                }
+                TaskMessage::Kill => {
+                    return child
+                        .kill()
+                        .map_err(|err| format_err!("Unable to kill {}: {:?}", &name, &err))
+                }
+            };
+        }
+
+        Ok(())
+    }
+
+    fn wrap_err_detail<D: Debug>(&self, message: &str, detail: &D) -> Error {
+        format_err!("{} {}: {:?}", &message, &self.name, &detail)
+    }
+}
+
+impl TryFrom<Service> for Command {
+    type Error = Error;
+    fn try_from(value: Service) -> Result<Command, Error> {
+        let mut command_line = shellwords::split(&value.command)
+            .map_err(|err| format_err!("Error parsing command {}: {:?}", &value.name, &err))?
+            .into_iter();
+        let program = command_line
+            .next()
+            .ok_or_else(|| format_err!("Invalid command line for service {}.", &value.name))?;
+        let mut command = Command::new(program);
+        command.args(command_line);
+        Ok(command)
     }
 }
 
@@ -157,6 +230,123 @@ pub fn read_procfile<R: io::Read>(input: R) -> Result<Vec<Service>, Error> {
         .into_iter()
         .map(|s| s.parse())
         .collect::<Result<Vec<Service>, Error>>()
+}
+
+#[derive(Debug)]
+pub struct ServiceManager {
+    service: Service,
+    join_handle: Option<JoinHandle<Result<(), Error>>>,
+    tx: Sender<TaskMessage>,
+    rx: Arc<Receiver<TaskResponse>>,
+}
+
+#[derive(Eq, Ord, PartialEq, PartialOrd, Debug)]
+enum TaskMessage {
+    Join,
+    ThreadId,
+    Kill,
+}
+
+#[derive(Debug)]
+enum TaskResponse {
+    Joined(Result<ExitStatus, Error>),
+    ThreadId(ThreadId),
+}
+
+impl ServiceManager {
+    pub fn start(service: Service) -> Result<ServiceManager, Error> {
+        let cloned_service = service.clone();
+        let (in_tx, in_rx) = channel();
+        let (out_tx, out_rx) = channel();
+
+        let join_handle = Builder::new()
+            .spawn(move || cloned_service.run(out_tx, in_rx))
+            .map_err(|err| {
+                format_err!(
+                    "Error spawning thread for service {}: {:?}",
+                    &service.name,
+                    &err
+                )
+            })?;
+        let join_handle = Some(join_handle);
+
+        Ok(ServiceManager {
+            service,
+            join_handle,
+            tx: in_tx,
+            rx: Arc::new(out_rx),
+        })
+    }
+
+    fn wrap_err_detail<D: Debug>(&self, message: &str, detail: &D) -> Error {
+        self.service.wrap_err_detail(message, detail)
+    }
+
+    pub fn join(&mut self) -> Result<ExitStatus, Error> {
+        let name = &self.service.name.clone();
+        let join_handle = self.join_handle
+            .take()
+            .ok_or_else(|| format_err!("Error joining task {}: No valid task", &name))?;
+
+        // If the task is over, then this fails.
+        self.tx
+            .send(TaskMessage::Join)
+            .map_err(|err| self.wrap_err_detail("Error joining task", &err))?;
+        let rx = &self.rx.clone();
+
+        let join_result = join_handle
+            .join()
+            .map_err(|err| format_err!("Error joining task {}: {:?}", &name, &err))?;
+        join_result?;
+
+        match rx.recv() {
+            Ok(TaskResponse::Joined(exit_status)) => exit_status,
+            Ok(msg) => Err(format_err!(
+                "Invalid message from join on {}: {:?}",
+                &name,
+                &msg
+            )),
+            Err(err) => Err(format_err!("Error from join on {}: {:?}", &name, &err)),
+        }
+    }
+
+    pub fn thread_id(&self) -> Result<ThreadId, Error> {
+        self.tx
+            .send(TaskMessage::ThreadId)
+            .map_err(|err| format_err!("Unable to request thread ID: {:?}", &err))?;
+        match self.rx.recv() {
+            Ok(TaskResponse::ThreadId(thread_id)) => Ok(thread_id),
+            Ok(msg) => Err(format_err!(
+                "Invalid message from thread_id on {}: {:?}",
+                &self.service.name,
+                &msg
+            )),
+            Err(err) => Err(format_err!(
+                "Error from thread.id() on {}: {:?}",
+                &self.service.name,
+                &err
+            )),
+        }
+    }
+
+    pub fn process_id(&self) -> u32 {
+        unimplemented!()
+    }
+
+    pub fn kill(self) -> Result<(), Error> {
+        self.tx
+            .send(TaskMessage::Kill)
+            .map_err(|err| format_err!("Unable to send KILL message: {:?}", &err))
+    }
+}
+
+impl Drop for ServiceManager {
+    fn drop(&mut self) {
+        if self.join_handle.is_some() {
+            // Yes. We're ignoring this error. If it's already died, I don't need to kill it.
+            let _result = self.tx.send(TaskMessage::Kill);
+        }
+    }
 }
 
 #[cfg(test)]

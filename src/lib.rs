@@ -1,16 +1,23 @@
+#![feature(try_from)]
+#![feature(plugin)]
+
+extern crate clap;
 #[macro_use]
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;
+#[cfg(test)]
+extern crate reqwest;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_yaml;
+extern crate shellwords;
 
+use std::io;
+
+pub mod actions;
 pub mod service;
-
-use std::fs::File;
-use std::path::PathBuf;
 
 /// The main entry point to the straw_boss library and executable.
 ///
@@ -18,16 +25,12 @@ use std::path::PathBuf;
 ///
 /// # Arguments
 ///
-/// * `procfile`: The path to a [`Procfile`](https://devcenter.heroku.com/articles/procfile)
-///   containing information about the services this straw boss should oversee.
-pub fn run(procfile: PathBuf) {
-    let f = File::open(&procfile).expect(&format!("Unable to open Procfile: {:?}", &procfile));
-    let services: Vec<service::Service> = service::read_procfile(f).expect(&format!(
-        "Unable to read data from Procfile: {:?}",
-        &procfile
-    ));
-    let index = service::index_services(&services);
-    let yaml = serde_yaml::to_string(&index).expect("Cannot convert index to YAML.");
-
-    println!("{}", yaml);
+/// * `action`: The `Action` object to run.
+pub fn run(action: actions::Action) {
+    let stdout = io::stdout();
+    let mut writer = io::BufWriter::new(stdout);
+    action
+        .execute(&mut writer)
+        .map_err(|err| format_err!("ERROR: {}", &err))
+        .unwrap();
 }
