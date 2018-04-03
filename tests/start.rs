@@ -12,8 +12,11 @@ fn test() {
     let mut buffer = Vec::with_capacity(4095);
     let mut system = System::new();
 
-    let _tasks = start(&procfile, &mut buffer).unwrap();
-    thread::sleep(time::Duration::from_secs(1));
+    let _join = thread::spawn(move || {
+        let _task = start(&procfile, &mut buffer).unwrap();
+    });
+    thread::sleep(time::Duration::from_secs(2));
+
     system.refresh_all();
     let processes = system.get_process_list();
     let processes = processes

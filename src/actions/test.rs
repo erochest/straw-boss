@@ -1,7 +1,7 @@
 mod procfile {
     mod read_services {
-        use service::Service;
-        use super::super::super::Procfile;
+        use actions::Procfile;
+        use service::service::Service;
 
         #[test]
         fn test_reads_list_of_services() {

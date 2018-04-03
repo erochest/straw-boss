@@ -20,6 +20,8 @@ use std::io;
 pub mod actions;
 pub mod service;
 
+pub type Result<A> = std::result::Result<A, failure::Error>;
+
 /// The main entry point to the straw_boss library and executable.
 ///
 /// This parses a `Procfile` and prints out the information in it in a more explicit, YAML format.
