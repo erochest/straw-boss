@@ -4,6 +4,7 @@ use failure::Error;
 
 pub mod manager;
 pub mod service;
+mod worker;
 
 #[derive(Eq, Ord, PartialEq, PartialOrd, Debug)]
 pub enum TaskMessage {
