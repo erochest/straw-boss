@@ -22,6 +22,7 @@ fn test() {
         .filter(|p| command_contains(p.1.cmd(), "3040"))
         .nth(0);
     processes.map(|p| p.1.kill(sysinfo::Signal::Kill));
+
     assert!(processes.is_some());
 }
 
