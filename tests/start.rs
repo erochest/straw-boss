@@ -1,10 +1,13 @@
+extern crate spectral;
 extern crate straw_boss;
 extern crate sysinfo;
 
+use self::spectral::assert_that;
+use self::spectral::prelude::*;
+use self::sysinfo::{ProcessExt, System, SystemExt};
 use std::thread;
 use std::time;
 use straw_boss::actions::{start, Procfile};
-use self::sysinfo::{ProcessExt, System, SystemExt};
 
 #[test]
 fn test() {
@@ -26,7 +29,7 @@ fn test() {
         .nth(0);
     processes.map(|p| p.1.kill(sysinfo::Signal::Kill));
 
-    assert!(processes.is_some());
+    assert_that(&processes).is_some();
 }
 
 fn command_contains(parts: &[String], part: &str) -> bool {
