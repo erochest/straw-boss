@@ -2,8 +2,8 @@
 extern crate clap;
 extern crate straw_boss;
 
-use std::env;
 use clap::{Arg, SubCommand};
+use std::env;
 
 use straw_boss::actions::{Action, Procfile};
 

@@ -4,8 +4,8 @@
 extern crate clap;
 #[macro_use]
 extern crate failure;
-#[macro_use]
-extern crate failure_derive;
+//#[macro_use]
+//extern crate failure_derive;
 #[cfg(test)]
 extern crate reqwest;
 extern crate serde;

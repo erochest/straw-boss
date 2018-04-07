@@ -1,6 +1,6 @@
+use failure::Error;
 use std::process::ExitStatus;
 use std::thread::ThreadId;
-use failure::Error;
 
 pub mod manager;
 pub mod service;
