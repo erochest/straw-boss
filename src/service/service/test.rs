@@ -1,4 +1,3 @@
-
 mod from_str {
     use service::service::Service;
     use spectral::assert_that;

@@ -122,4 +122,4 @@ impl ServiceManager {
 // }
 
 #[cfg(test)]
-mod test {}
+mod test;
