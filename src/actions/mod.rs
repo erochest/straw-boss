@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-//use serde_yaml;
+use serde_yaml;
 
 use Result;
 use service::manager;
@@ -77,17 +77,15 @@ pub fn start<W: Write>(procfile: &Procfile, _writer: &mut W) -> Result<()> {
     result.unwrap_or(Ok(()))
 }
 
-pub fn yamlize<W: Write>(_procfile: &Procfile, _writer: &mut W) -> Result<()> {
-    Ok(())
-    //TODO
-    //let services = procfile.read_services()?;
-    //let index = service::index_services(&services);
-    //let yaml = serde_yaml::to_string(&index)
-    //.map_err(|err| format_err!("Cannot convert index to YAML: {}", &err))?;
+pub fn yamlize<W: Write>(procfile: &Procfile, writer: &mut W) -> Result<()> {
+    let services = procfile.read_services()?;
+    let index = service::index_services(&services);
+    let yaml = serde_yaml::to_string(&index)
+        .map_err(|err| format_err!("Cannot convert index to YAML: {}", &err))?;
 
-    //writer
-    //.write_fmt(format_args!("{}", yaml))
-    //.map_err(|err| format_err!("Cannot write YAML: {:?}", &err))
+    writer
+        .write_fmt(format_args!("{}", yaml))
+        .map_err(|err| format_err!("Cannot write YAML: {:?}", &err))
 }
 
 #[cfg(test)]

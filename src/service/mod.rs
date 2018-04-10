@@ -10,7 +10,7 @@ mod worker;
 pub enum TaskMessage {
     Join,
     ThreadId,
-    Kill,
+    // Kill,
 }
 
 #[derive(Debug)]
