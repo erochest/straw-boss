@@ -33,7 +33,7 @@ impl Service {
     /// # Example
     ///
     /// ```rust
-    /// use straw_boss::service::Service;
+    /// use straw_boss::service::service::Service;
     ///
     /// let service = Service::from_command("hello", "while :; do sleep 1; done");
     ///
@@ -61,12 +61,12 @@ impl Service {
     /// # Example
     ///
     /// ```rust
-    /// use straw_boss::service::{read_procfile, Service};
+    /// use straw_boss::service::service::Service;
     ///
     /// let input = b"web: start web-server\n\
     ///               worker: start worker\n\
     ///               queue: queue-mgr\n";
-    /// let services = read_procfile(&input[..]).unwrap();
+    /// let services = Service::read_procfile(&input[..]).unwrap();
     /// assert_eq!(services, vec![
     ///     Service::from_command("web", "start web-server"),
     ///     Service::from_command("worker", "start worker"),
@@ -89,6 +89,19 @@ impl Service {
 
 impl TryFrom<Service> for Command {
     type Error = Error;
+
+    /// Converts from a service into a `Command` that can be executed.
+    ///
+    /// ```rust
+    /// use straw_boss::service::service::Service;
+    /// use std::process::Command;
+    /// use std::convert::TryFrom;
+    ///
+    /// let service = Service::from_command("hellow-world", "bash -c \"echo hello, world\"");
+    /// let mut command = Command::try_from(service).unwrap();
+    /// let output = command.output().unwrap();
+    /// assert_eq!(output.stdout, b"hello, world\n");
+    /// ```
     fn try_from(value: Service) -> Result<Command> {
         let mut command_line = shellwords::split(&value.command)
             .map_err(|err| format_err!("Error parsing command {}: {:?}", &value.name, &err))?
@@ -154,7 +167,7 @@ impl FromStr for Service {
 /// # Example
 ///
 /// ```rust
-/// use straw_boss::service::{index_services, Service};
+/// use straw_boss::service::service::{index_services, Service};
 /// use std::collections::HashMap;
 ///
 /// let services = vec![

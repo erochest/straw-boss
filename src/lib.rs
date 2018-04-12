@@ -21,6 +21,8 @@ use std::io;
 pub mod actions;
 pub mod service;
 
+/// A convenience type alias for a specialization of `Result` that uses `failure::Error` for
+/// exceptions.
 pub type Result<A> = std::result::Result<A, failure::Error>;
 
 /// The main entry point to the straw_boss library and executable.

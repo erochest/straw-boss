@@ -5,19 +5,21 @@ use std::path::PathBuf;
 use serde_yaml;
 
 use Result;
-use service::manager;
 use service::service;
 use service::service::Service;
-//use service::manager::ServiceManager;
+use service::worker::ServiceWorker;
 
+/// A `Procfile`. This is a newtype for a `PathBuf`.
 #[derive(Debug)]
 pub struct Procfile(PathBuf);
 
 impl Procfile {
+    /// Create a new `Procfile` from a `PathBuf`.
     pub fn new(procfile: PathBuf) -> Procfile {
         Procfile(procfile)
     }
 
+    /// Read a vector of `Service` instances from a `Procfile`.
     pub fn read_services(&self) -> Result<Vec<service::Service>> {
         let &Procfile(ref procfile) = self;
         let f = File::open(&procfile)
@@ -32,6 +34,7 @@ impl Procfile {
     }
 }
 
+/// An action that the straw boss can do.
 #[derive(Debug)]
 pub enum Action {
     Start(Procfile),
@@ -39,6 +42,8 @@ pub enum Action {
 }
 
 impl Action {
+    /// Execute an action. This dispatches to the appropriate function to take the action
+    /// described. It writes its output to the `Write` implementor passed in.
     pub fn execute<W: Write>(&self, writer: &mut W) -> Result<()> {
         match *self {
             Action::Start(ref procfile) => start(procfile, writer),
@@ -47,36 +52,37 @@ impl Action {
     }
 }
 
-pub fn start<W: Write>(procfile: &Procfile, _writer: &mut W) -> Result<()> {
+/// Start all the processes described in the `Procfile`.
+pub fn start<W: Write>(procfile: &Procfile, writer: &mut W) -> Result<()> {
     let services = procfile.read_services()?;
-    let managers: Vec<Result<manager::ServiceManager>> = services
+    let workers: Vec<Result<ServiceWorker>> = services
         .into_iter()
-        // TODO
-        //.map(|s| ServiceManager::start(s))
-        .map(|_s| unimplemented!())
+        .map(|s| ServiceWorker::new(s))
+        .map(|mut w| w.start().map(|_| w))
         .collect();
-    let mut result = None;
-    let _erred = managers.iter().any(|r| r.is_err());
 
-    for mut m in managers {
-        match m {
-            Ok(ref mut _manager) => {
-                //TODO
-                //if erred {
-                //manager.kill();
-                //}
-                //manager.wait();
-                ()
+    let mut result = None;
+    let erred = workers.iter().any(|r| r.is_err());
+
+    for w in workers {
+        match w {
+            Ok(mut worker) => {
+                if erred {
+                    let _ = worker.kill();
+                }
+                let _ = worker.join();
             }
             Err(err) => {
-                result.get_or_insert_with(|| Err(format_err!("Error starting task: {:?}", &err)));
+                let _ = writer.write_fmt(format_args!("Error starting process: {:?}", &err));
+                result = result.or(Some(Err(err)));
             }
-        };
+        }
     }
 
     result.unwrap_or(Ok(()))
 }
 
+/// Read the processes in the `Procfile` and write them back out as YAML.
 pub fn yamlize<W: Write>(procfile: &Procfile, writer: &mut W) -> Result<()> {
     let services = procfile.read_services()?;
     let index = service::index_services(&services);

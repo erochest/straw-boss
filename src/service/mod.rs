@@ -1,20 +1,25 @@
 use failure::Error;
 use std::process::ExitStatus;
-use std::thread::ThreadId;
 
-pub mod manager;
 pub mod service;
-mod worker;
+pub mod worker;
 
+/// Messages to the service workers.
 #[derive(Eq, Ord, PartialEq, PartialOrd, Debug)]
 pub enum TaskMessage {
+    /// Wait for the thing to finish.
     Join,
-    ThreadId,
-    // Kill,
+    /// Kill the running service.
+    Kill,
+    /// Return the process ID.
+    ProcessId,
 }
 
+/// Response to messages.
 #[derive(Debug)]
 pub enum TaskResponse {
+    /// The result of the running process after it's finished.
     Joined(Result<ExitStatus, Error>),
-    ThreadId(ThreadId),
+    /// The process ID for the child.
+    ProcessId(u32),
 }
