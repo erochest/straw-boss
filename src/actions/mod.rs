@@ -34,24 +34,6 @@ impl Procfile {
     }
 }
 
-/// An action that the straw boss can do.
-#[derive(Debug)]
-pub enum Action {
-    Start(Procfile),
-    Yamlize(Procfile),
-}
-
-impl Action {
-    /// Execute an action. This dispatches to the appropriate function to take the action
-    /// described. It writes its output to the `Write` implementor passed in.
-    pub fn execute<W: Write>(&self, writer: &mut W) -> Result<()> {
-        match *self {
-            Action::Start(ref procfile) => start(procfile, writer),
-            Action::Yamlize(ref procfile) => yamlize(procfile, writer),
-        }
-    }
-}
-
 /// Start all the processes described in the `Procfile`.
 pub fn start<W: Write>(procfile: &Procfile, writer: &mut W) -> Result<()> {
     let services = procfile.read_services()?;

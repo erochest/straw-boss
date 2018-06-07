@@ -1,8 +1,7 @@
 [package]
+authors = ["Eric Rochester <eric.rochester@willowtreeapps.com>"]
 name = "straw-boss"
 version = "0.1.0"
-authors = ["Eric Rochester <eric.rochester@willowtreeapps.com>"]
-
 [dependencies]
 clap = "2.30.0"
 failure = "0.1.1"
@@ -10,8 +9,9 @@ failure_derive = "0.1.1"
 serde = "1.0.27"
 serde_derive = "1.0.27"
 serde_yaml = "0.7.3"
-sysinfo = "0.5.1"
 shellwords = "0.1.0"
+sysinfo = "0.5.1"
+thunder = "0.3.1"
 
 [dev-dependencies]
 reqwest = "0.8.5"
