@@ -93,6 +93,8 @@ impl TryFrom<Service> for Command {
     /// Converts from a service into a `Command` that can be executed.
     ///
     /// ```rust
+    /// #![feature(try_from)]
+    ///
     /// use straw_boss::service::service::Service;
     /// use std::process::Command;
     /// use std::convert::TryFrom;
