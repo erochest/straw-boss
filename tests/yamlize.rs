@@ -10,8 +10,10 @@ use straw_boss::actions::{yamlize, Procfile};
 fn test_writes_services_to_output() {
     let fixture = Procfile::new(PathBuf::from("./fixtures/Procfile"));
     let mut buffer: Vec<u8> = Vec::with_capacity(1024);
+
     let result = yamlize(&fixture, &mut buffer);
     assert_that(&result).is_ok();
+
     let output = String::from_utf8(buffer).unwrap();
     assert_that(&output).contains("error:");
     assert_that(&output).contains("ruby ./error");

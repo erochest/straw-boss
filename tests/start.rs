@@ -10,7 +10,7 @@ use std::time;
 use straw_boss::actions::{start, Procfile};
 
 #[test]
-fn test() {
+fn test_start() {
     let procfile = Procfile::new("./fixtures/Procfile.python".into());
     let mut buffer = Vec::with_capacity(4095);
     let mut system = System::new();

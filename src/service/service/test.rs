@@ -42,8 +42,8 @@ mod from_str {
 }
 
 mod index_services {
-    use service::service::Service;
     use service::service::index_services;
+    use service::service::Service;
     use spectral::assert_that;
     use spectral::prelude::*;
 
@@ -67,9 +67,13 @@ mod index_services {
         ];
         let index = index_services(&input);
         assert_that(&index.get("web"))
-            .mapped_contains(|s| s.command.clone(), &String::from("start web-server"));
+            .is_some()
+            .map(|s| &s.command)
+            .is_equal_to(&String::from("start web-server"));
         assert_that(&index.get("worker"))
-            .mapped_contains(|s| s.command.clone(), &String::from("start worker"));
+            .is_some()
+            .map(|s| &s.command)
+            .is_equal_to(&String::from("start worker"));
     }
 
     #[test]
@@ -81,7 +85,9 @@ mod index_services {
         ];
         let index = index_services(&input);
         assert_that(&index.get("web"))
-            .mapped_contains(|s| s.command.clone(), &String::from("second web-server"));
+            .is_some()
+            .map(|s| &s.command)
+            .is_equal_to(&String::from("second web-server"));
     }
 }
 
