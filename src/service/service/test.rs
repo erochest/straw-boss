@@ -97,11 +97,17 @@ mod read_procfile {
     use spectral::prelude::*;
 
     #[test]
+    fn test_skips_comments() {
+        let input = b"# commentary\nweb: start web-server\n";
+        let services = Service::read_procfile(&input[..]);
+        assert_that(&services).is_ok().has_length(1);
+    }
+
+    #[test]
     fn test_reads_one_service_per_line() {
         let input = b"web: start web-server\nworker: start worker\n";
         let services = Service::read_procfile(&input[..]);
-        assert_that(&services).is_ok();
-        assert_that(&services.unwrap()).has_length(2);
+        assert_that(&services).is_ok().has_length(2);
     }
 
     #[test]

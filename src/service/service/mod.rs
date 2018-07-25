@@ -1,4 +1,3 @@
-use Result;
 use failure::Error;
 use shellwords;
 use std::collections::HashMap;
@@ -8,6 +7,7 @@ use std::io::BufRead;
 use std::iter::FromIterator;
 use std::process::Command;
 use std::str::FromStr;
+use Result;
 
 /// A service that the straw boss will manage.
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
@@ -74,14 +74,10 @@ impl Service {
     /// ]);
     /// ```
     pub fn read_procfile<R: io::Read>(input: R) -> Result<Vec<Service>> {
-        let reader = io::BufReader::new(input);
-        let lines = reader
+        io::BufReader::new(input)
             .lines()
-            .collect::<io::Result<Vec<String>>>()
-            .map_err(|err| format_err!("Unable to read from Procfile input: {:?}", err))?;
-
-        lines
-            .into_iter()
+            .filter_map(|result| result.ok())
+            .filter(|line| !line.trim_left().starts_with("#"))
             .map(|s| s.parse())
             .collect::<Result<Vec<Service>>>()
     }

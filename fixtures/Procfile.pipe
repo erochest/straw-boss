@@ -1,0 +1,2 @@
+# This file contains pipes
+count-words: cat ./fixtures/Procfile.pipe | wc -l
