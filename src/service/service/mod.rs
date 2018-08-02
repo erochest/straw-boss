@@ -1,13 +1,18 @@
+use duct::{cmd, Expression};
 use failure::Error;
+use service::{TaskMessage, TaskResponse};
 use shellwords;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::io;
 use std::io::BufRead;
 use std::iter::FromIterator;
-use std::process::Command;
 use std::str::FromStr;
+use std::sync::mpsc::{Receiver, Sender};
 use Result;
+
+type CommandArgs = Vec<String>;
+type CommandList = Vec<CommandArgs>;
 
 /// A service that the straw boss will manage.
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
@@ -35,15 +40,14 @@ impl Service {
     /// ```rust
     /// use straw_boss::service::service::Service;
     ///
-    /// let service = Service::from_command("hello", "while :; do sleep 1; done");
+    /// let service = Service::new("hello", "while :; do sleep 1; done");
     ///
     /// assert_eq!(&String::from("hello"), &service.name);
-    /// assert_eq!(&String::from("while :; do sleep 1; done"), &service.command);
     /// ```
-    pub fn from_command(name: &str, command: &str) -> Service {
+    pub fn new(name: &str, command: &str) -> Service {
         Service {
-            name: name.into(),
-            command: command.into(),
+            name: String::from(name),
+            command: String::from(command),
         }
     }
 
@@ -68,9 +72,9 @@ impl Service {
     ///               queue: queue-mgr\n";
     /// let services = Service::read_procfile(&input[..]).unwrap();
     /// assert_eq!(services, vec![
-    ///     Service::from_command("web", "start web-server"),
-    ///     Service::from_command("worker", "start worker"),
-    ///     Service::from_command("queue", "queue-mgr"),
+    ///     Service::new("web", "start web-server"),
+    ///     Service::new("worker", "start worker"),
+    ///     Service::new("queue", "queue-mgr"),
     /// ]);
     /// ```
     pub fn read_procfile<R: io::Read>(input: R) -> Result<Vec<Service>> {
@@ -80,36 +84,6 @@ impl Service {
             .filter(|line| !line.trim_left().starts_with("#"))
             .map(|s| s.parse())
             .collect::<Result<Vec<Service>>>()
-    }
-}
-
-impl TryFrom<Service> for Command {
-    type Error = Error;
-
-    /// Converts from a service into a `Command` that can be executed.
-    ///
-    /// ```rust
-    /// #![feature(try_from)]
-    ///
-    /// use straw_boss::service::service::Service;
-    /// use std::process::Command;
-    /// use std::convert::TryFrom;
-    ///
-    /// let service = Service::from_command("hellow-world", "bash -c \"echo hello, world\"");
-    /// let mut command = Command::try_from(service).unwrap();
-    /// let output = command.output().unwrap();
-    /// assert_eq!(output.stdout, b"hello, world\n");
-    /// ```
-    fn try_from(value: Service) -> Result<Command> {
-        let mut command_line = shellwords::split(&value.command)
-            .map_err(|err| format_err!("Error parsing command {}: {:?}", &value.name, &err))?
-            .into_iter();
-        let program = command_line
-            .next()
-            .ok_or_else(|| format_err!("Invalid command line for service {}.", &value.name))?;
-        let mut command = Command::new(program);
-        command.args(command_line);
-        Ok(command)
     }
 }
 
@@ -146,8 +120,9 @@ impl FromStr for Service {
             .ok_or_else(|| format_err!("Invalid Procfile line: {:?}", &s))?;
         let command = parts
             .next()
-            .ok_or_else(|| format_err!("Invalid Procfile line: {:?}", &s))?;
-        Ok(Service::from_command(name, command.trim()))
+            .ok_or_else(|| format_err!("Invalid Procfile line: {:?}", &s))?
+            .trim();
+        Ok(Service::new(&name, &command))
     }
 }
 
@@ -169,9 +144,9 @@ impl FromStr for Service {
 /// use std::collections::HashMap;
 ///
 /// let services = vec![
-///     Service::from_command("web", "start web-server"),
-///     Service::from_command("worker", "start worker"),
-///     Service::from_command("queue", "queue-mgr"),
+///     Service::new("web", "start web-server"),
+///     Service::new("worker", "start worker"),
+///     Service::new("queue", "queue-mgr"),
 /// ];
 /// let index = index_services(&services);
 /// let mut items = index
@@ -187,6 +162,83 @@ impl FromStr for Service {
 /// ```
 pub fn index_services(services: &[Service]) -> HashMap<String, &Service> {
     HashMap::from_iter(services.into_iter().map(|s| (s.name.clone(), s)))
+}
+
+fn split_piped_commands(commands: &str) -> Result<CommandList> {
+    let split = shellwords::split(commands)
+        .map_err(|err| format_err!("Unable to parse command: {}: {:?}", &commands, &err))?
+        .split(|word| word == &"|")
+        .map(|command| command.to_vec())
+        .collect::<CommandList>();
+    if split.iter().any(|c| c.is_empty()) {
+        Err(format_err!("Empty command in: {}", &commands))
+    } else {
+        Ok(split)
+    }
+}
+
+impl TryFrom<Service> for Expression {
+    type Error = Error;
+
+    /// Converts from a service into a `duct::Expression` that can be executed.
+    ///
+    /// ```rust
+    /// #![feature(try_from)]
+    /// extern crate straw_boss;
+    /// extern crate duct;
+    ///
+    /// use duct::Expression;
+    /// use std::convert::TryFrom;
+    /// use straw_boss::service::service::Service;
+    ///
+    /// let service = Service::new("hello-world", "bash -c \"echo hello, world\"");
+    /// let mut command = Expression::try_from(service).unwrap();
+    /// let output = command.read().unwrap();
+    /// assert_eq!("hello, world", output.trim());
+    /// ```
+    fn try_from(service: Service) -> Result<Expression> {
+        let commands = split_piped_commands(&service.command)?;
+        let mut commands = commands.into_iter();
+        let initial = commands
+            .next()
+            .map(|command| cmd(&command[0], &command[1..]))
+            .ok_or_else(|| format_err!("Invalid pipeline. No command."))?;
+        let pipeline = commands.fold(initial, |p, c| p.pipe(cmd(&c[0], &c[1..])));
+
+        Ok(pipeline)
+    }
+}
+
+/// This takes the channels to communicate over and the service to run, and it executes the
+/// service. This is meant to be run in a new thread.
+pub fn run(service: Service, rx: Receiver<TaskMessage>, tx: Sender<TaskResponse>) -> Result<()> {
+    let service_name = service.name.clone();
+    let handle = Expression::try_from(service)?.start()?;
+
+    for message in rx {
+        match message {
+            TaskMessage::Join => {
+                let output = handle.output().map_err(|err| {
+                    format_err!("Error waiting for service {}: {:?}", &service_name, &err)
+                })?;
+                tx.send(TaskResponse::Joined(output)).map_err(|err| {
+                    format_err!(
+                        "Error while sending wait for service {}: {:?}",
+                        &service_name,
+                        &err
+                    )
+                })?;
+                break;
+            }
+            TaskMessage::Kill => {
+                return handle.kill().map_err(|err| {
+                    format_err!("Error killing service {}: {:?}", &service_name, &err)
+                });
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

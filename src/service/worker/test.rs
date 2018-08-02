@@ -1,12 +1,9 @@
 use service::service::Service;
 use service::worker::ServiceWorker;
-use service::{TaskMessage, TaskResponse};
-use spectral::prelude::*;
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::time;
 
 fn setup(name: &str, command: &str) -> ServiceWorker {
-    let service = Service::from_command(name, command);
+    let line = format!("{}: {}", &name, &command);
+    let service = line.parse::<Service>().unwrap();
     let mut worker = ServiceWorker::new(service);
     worker.start().unwrap();
 
@@ -16,13 +13,8 @@ fn setup(name: &str, command: &str) -> ServiceWorker {
 mod start {
     use super::setup;
     use reqwest;
-    use service::service::Service;
-    use service::worker::ServiceWorker;
-    use service::{TaskMessage, TaskResponse};
     use spectral::assert_that;
     use spectral::prelude::*;
-    use std::sync::Arc;
-    use std::sync::mpsc::{channel, Receiver, Sender};
     use std::thread;
     use std::time;
 
@@ -42,13 +34,7 @@ mod start {
     fn test_runs_successfully() {
         let mut worker = setup("test_runs_successfully", "sleep 3");
         let result = worker.join();
-
         assert_that(&result).is_ok();
-        if let Ok(status) = result {
-            assert_that(&status.success())
-                .named(&format!("Status code: {:?}", &status.code()))
-                .is_true();
-        }
     }
 
     #[test]
@@ -67,8 +53,6 @@ mod start {
 
 mod join {
     use super::setup;
-    use service::service::Service;
-    use service::worker::ServiceWorker;
     use spectral::assert_that;
     use spectral::prelude::*;
     use std::time::{Duration, Instant};
@@ -77,11 +61,11 @@ mod join {
     fn test_waits_for_child_to_finish() {
         let mut worker = setup("test_waits_for_child_to_finish", "sleep 3");
         let start_time = Instant::now();
-        let status = worker.join().unwrap();
+        let output = worker.join();
         let end_time = Instant::now();
 
         assert_that(&(end_time - start_time)).is_greater_than(Duration::from_secs(2));
-        assert_that(&status.success()).is_true();
+        assert_that(&output).is_ok();
     }
 
     #[test]
@@ -90,8 +74,8 @@ mod join {
 
         assert_that(&worker.is_running()).is_true();
 
-        let status = worker.join().unwrap();
-        assert_that(&status.success()).is_true();
+        let output = worker.join();
+        assert_that(&output).is_ok();
 
         assert_that(&worker.is_running()).is_false();
     }
@@ -100,8 +84,6 @@ mod join {
 mod kill {
     use super::setup;
     use reqwest;
-    use service::service::Service;
-    use service::worker::ServiceWorker;
     use spectral::assert_that;
     use spectral::prelude::*;
     use std::thread;
@@ -122,7 +104,6 @@ mod kill {
 mod thread_id {
     use super::setup;
     use spectral::assert_that;
-    use spectral::prelude::*;
     use std::thread;
 
     #[test]
@@ -130,21 +111,6 @@ mod thread_id {
         let worker = setup("test_returns_the_processes_thread_id", "sleep 3");
         let thread_id = worker.thread_id();
         assert_that(&thread_id).is_not_equal_to(&Some(thread::current().id()));
-    }
-}
-
-mod process_id {
-    use super::setup;
-    use spectral::assert_that;
-    use spectral::prelude::*;
-    use std::process;
-
-    #[test]
-    fn test_returns_the_process_id() {
-        let worker = setup("test_returns_the_processes_thread_id", "sleep 3");
-        let worker_process_id = worker.process_id();
-        let current_process_id = process::id();
-        assert_that(&worker_process_id).is_not_equal_to(&Some(current_process_id));
     }
 }
 

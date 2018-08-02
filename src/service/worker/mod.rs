@@ -1,10 +1,9 @@
-use Result;
-use service::service::Service;
+use service::service::{run, Service};
 use service::{TaskMessage, TaskResponse};
-use std::convert::TryFrom;
-use std::process::{Command, ExitStatus};
+use std::process::Output;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
+use Result;
 
 /// Information about a running service task.
 #[derive(Debug)]
@@ -17,7 +16,7 @@ struct Running(
 impl Running {
     /// Message to wait until the task finishes, then receive the task's `ExitStatus` and return
     /// it. This consumes the `Running`.
-    fn join(self, service_name: &str) -> Result<ExitStatus> {
+    fn join(self, service_name: &str) -> Result<Output> {
         let Running(_, tx, rx) = self;
         tx.send(TaskMessage::Join)
             .map_err(|err| format_err!("Unable to send message to {}: {:?}", &service_name, &err))?;
@@ -29,15 +28,8 @@ impl Running {
             )
         })?;
 
-        if let TaskResponse::Joined(status) = response {
-            status
-        } else {
-            Err(format_err!(
-                "Invalid response to `Join` on {}: {:?}",
-                &service_name,
-                &response
-            ))
-        }
+        let TaskResponse::Joined(output) = response;
+        Ok(output)
     }
 }
 
@@ -87,23 +79,8 @@ impl ServiceWorker {
         }
     }
 
-    /// Return the OS process ID that the task is executing in.
-    pub fn process_id(&self) -> Option<u32> {
-        if let Some(Running(_, ref tx, ref rx)) = self.worker {
-            tx.send(TaskMessage::ProcessId).ok()?;
-            let reply = rx.recv().ok()?;
-            if let TaskResponse::ProcessId(pid) = reply {
-                Some(pid)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
     /// Wait for the task to complete and return its `ExitStatus`.
-    pub fn join(&mut self) -> Result<ExitStatus> {
+    pub fn join(&mut self) -> Result<Output> {
         let worker = self.worker.take();
         worker
             .ok_or_else(|| format_err!("Service {} not running.", &self.service.name))
@@ -133,46 +110,6 @@ impl Drop for ServiceWorker {
     fn drop(&mut self) {
         let _ = self.kill();
     }
-}
-
-/// This takes the channels to communicate over and the service to run, and it executes the
-/// service. This is meant to be run in a new thread.
-fn run(service: Service, rx: Receiver<TaskMessage>, tx: Sender<TaskResponse>) -> Result<()> {
-    let service_name = service.name.clone();
-    let mut child = Command::try_from(service)?.spawn()?;
-
-    for message in rx {
-        match message {
-            TaskMessage::ProcessId => {
-                let _ = tx.send(TaskResponse::ProcessId(child.id())).map_err(|err| {
-                    format_err!(
-                        "Error sending process ID of service {}: {:?}",
-                        &service_name,
-                        &err
-                    )
-                });
-            }
-            TaskMessage::Join => {
-                let result = child.wait().map_err(|err| {
-                    format_err!("Error waiting for service {}: {:?}", &service_name, &err)
-                });
-                tx.send(TaskResponse::Joined(result)).map_err(|err| {
-                    format_err!(
-                        "Error while sending wait for service {}: {:?}",
-                        &service_name,
-                        &err
-                    )
-                })?;
-            }
-            TaskMessage::Kill => {
-                return child.kill().map_err(|err| {
-                    format_err!("Error killing service {}: {:?}", &service_name, &err)
-                });
-            }
-        }
-    }
-
-    Ok(())
 }
 
 #[cfg(test)]

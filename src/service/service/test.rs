@@ -19,9 +19,23 @@ mod from_str {
     #[test]
     fn test_associates_names_with_commands() {
         let input = vec!["web: start web-server", "worker: start worker"];
+        let expected = vec!["start web-server".into(), "start worker".into()];
+        let services = input
+            .into_iter()
+            .map(|s| Service::from_str(s).unwrap().command)
+            .collect::<Vec<String>>();
+        assert_that(&services).equals_iterator(&expected.iter());
+    }
+
+    #[test]
+    fn test_returns_multiple_commands_for_service_when_piped() {
+        let input = vec![
+            "web: start web-server | tee web-server.log",
+            "worker: start worker | tee worker.log",
+        ];
         let expected = vec![
-            String::from("start web-server"),
-            String::from("start worker"),
+            "start web-server | tee web-server.log".to_string(),
+            "start worker | tee worker.log".to_string(),
         ];
         let services = input
             .into_iter()
@@ -50,8 +64,8 @@ mod index_services {
     #[test]
     fn test_index_returns_expected_count() {
         let input = vec![
-            Service::from_command("web", "start web-server"),
-            Service::from_command("worker", "start worker"),
+            Service::new("web", "start web-server"),
+            Service::new("worker", "start worker"),
         ];
         let index = index_services(&input);
         let keys = index.keys().collect::<Vec<&String>>();
@@ -62,32 +76,32 @@ mod index_services {
     #[test]
     fn test_index_associates_commands_with_names() {
         let input = vec![
-            Service::from_command("web", "start web-server"),
-            Service::from_command("worker", "start worker"),
+            Service::new("web", "start web-server"),
+            Service::new("worker", "start worker"),
         ];
         let index = index_services(&input);
         assert_that(&index.get("web"))
             .is_some()
             .map(|s| &s.command)
-            .is_equal_to(&String::from("start web-server"));
+            .is_equal_to(&"start web-server".into());
         assert_that(&index.get("worker"))
             .is_some()
             .map(|s| &s.command)
-            .is_equal_to(&String::from("start worker"));
+            .is_equal_to(&"start worker".into());
     }
 
     #[test]
     fn test_index_keeps_last_duplicate() {
         let input = vec![
-            Service::from_command("web", "start web-server"),
-            Service::from_command("worker", "start worker"),
-            Service::from_command("web", "second web-server"),
+            Service::new("web", "start web-server"),
+            Service::new("worker", "start worker"),
+            Service::new("web", "second web-server"),
         ];
         let index = index_services(&input);
         assert_that(&index.get("web"))
             .is_some()
             .map(|s| &s.command)
-            .is_equal_to(&String::from("second web-server"));
+            .is_equal_to(&"second web-server".to_string());
     }
 }
 
@@ -137,67 +151,18 @@ mod read_procfile {
             .into_iter()
             .map(|s| s.command)
             .collect::<Vec<String>>();
-        assert_that(&names).contains(String::from("start web-server"));
-        assert_that(&names).contains(String::from("start worker"));
+        assert_that(&names).contains(&"start web-server".into());
+        assert_that(&names).contains(&"start worker".into());
     }
 }
 
-mod try_into_command {
-    use service::service::Service;
-    use shellwords::split;
-    use spectral::assert_that;
+mod split_piped_commands {
+    use super::super::split_piped_commands;
     use spectral::prelude::*;
-    use std::convert::TryFrom;
-    use std::process::Command;
 
     #[test]
-    fn test_returns_err_if_cannot_find_program() {
-        let service = Service::from_command("will-error", "./does-not-exist");
-        let mut command = Command::try_from(service).unwrap();
-        let result = command.spawn();
-        assert_that(&result).is_err();
+    fn test_returns_err_on_invalid_shell() {
+        assert_that(&split_piped_commands("echo \"hi")).is_err();
     }
 
-    #[test]
-    fn test_runs_single_commands() {
-        let service = Service::from_command("ls", "ls");
-        let mut command = Command::try_from(service).unwrap();
-        let status = command.status().unwrap();
-        assert_that(&status.success()).is_true();
-    }
-
-    #[test]
-    fn test_runs_commands_with_arguments() {
-        let service = Service::from_command("lslh", "ls -lh");
-        let mut command = Command::try_from(service).unwrap();
-        let output = command.output().unwrap();
-        assert_that(&output.status.success()).is_true();
-
-        let stdout = String::from(String::from_utf8_lossy(&output.stdout));
-        assert_that(&stdout).contains("drwxr-xr-x");
-    }
-
-    #[test]
-    fn test_runs_commands_with_arguments_quoted_with_backslashes() {
-        let service = Service::from_command("ls-hello", "ls fixtures/hello\\ there");
-        let mut command = Command::try_from(service).unwrap();
-        let status = command.status().unwrap();
-        assert_that(&status.success()).is_true();
-    }
-
-    #[test]
-    fn test_runs_commands_with_arguments_quoted_with_double_quotes() {
-        let service = Service::from_command("ls-hello", "ls \"fixtures/hello there\"");
-        let mut command = Command::try_from(service).unwrap();
-        let status = command.status().unwrap();
-        assert_that(&status.success()).is_true();
-    }
-
-    #[test]
-    fn test_splits_commands() {
-        let words = split("ls hello-there").unwrap();
-        assert_that(&words).has_length(2);
-        assert_that(&words)
-            .contains_all_of(&vec![&String::from("ls"), &String::from("hello-there")]);
-    }
 }

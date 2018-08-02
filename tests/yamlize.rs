@@ -1,20 +1,24 @@
+extern crate assert_cmd;
 extern crate spectral;
 extern crate straw_boss;
 
-use self::spectral::assert_that;
-use self::spectral::prelude::*;
-use std::path::PathBuf;
-use straw_boss::actions::{yamlize, Procfile};
+use assert_cmd::prelude::*;
+use spectral::assert_that;
+use spectral::prelude::*;
+use std::process::Command;
 
 #[test]
 fn test_writes_services_to_output() {
-    let fixture = Procfile::new(PathBuf::from("./fixtures/Procfile"));
-    let mut buffer: Vec<u8> = Vec::with_capacity(1024);
+    let command = Command::main_binary()
+        .unwrap()
+        .arg("--procfile")
+        .arg("./fixtures/Procfile")
+        .arg("yamlize")
+        .unwrap();
 
-    let result = yamlize(&fixture, &mut buffer);
-    assert_that(&result).is_ok();
+    let output = String::from_utf8(command.stdout.clone()).unwrap();
+    command.assert().success();
 
-    let output = String::from_utf8(buffer).unwrap();
     assert_that(&output).contains("error:");
     assert_that(&output).contains("ruby ./error");
     assert_that(&output).contains("utf8:");
