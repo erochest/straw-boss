@@ -1,0 +1,2 @@
+web1: python3 -m http.server 3040
+web2: python3 -m http.server --directory fixtures 3042

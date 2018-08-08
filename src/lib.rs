@@ -2,6 +2,7 @@
 #![feature(plugin)]
 
 extern crate clap;
+extern crate daemonize;
 extern crate duct;
 #[macro_use]
 extern crate failure;
@@ -33,11 +34,10 @@ pub type Result<A> = std::result::Result<A, failure::Error>;
 /// # Arguments
 ///
 /// * `action`: The `Action` object to run.
-pub fn run(action: actions::Action) {
+pub fn run(action: actions::Action) -> Result<()> {
     let stdout = io::stdout();
     let mut writer = io::BufWriter::new(stdout);
     action
         .execute(&mut writer)
         .map_err(|err| format_err!("ERROR: {}", &err))
-        .unwrap();
 }

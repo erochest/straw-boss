@@ -1,13 +1,13 @@
-use std::fs::File;
-use std::io::Write;
-use std::path::PathBuf;
-
+use daemonize::Daemonize;
 use serde_yaml;
-
-use Result;
 use service::service;
 use service::service::Service;
 use service::worker::ServiceWorker;
+use std::env;
+use std::fs::File;
+use std::io::Write;
+use std::path::PathBuf;
+use Result;
 
 /// A `Procfile`. This is a newtype for a `PathBuf`.
 #[derive(Debug)]
@@ -37,6 +37,7 @@ impl Procfile {
 /// An action that the straw boss can do.
 #[derive(Debug)]
 pub enum Action {
+    Server(Procfile),
     Start(Procfile),
     Yamlize(Procfile),
 }
@@ -46,10 +47,26 @@ impl Action {
     /// described. It writes its output to the `Write` implementor passed in.
     pub fn execute<W: Write>(&self, writer: &mut W) -> Result<()> {
         match *self {
+            Action::Server(ref procfile) => server(procfile, writer),
             Action::Start(ref procfile) => start(procfile, writer),
             Action::Yamlize(ref procfile) => yamlize(procfile, writer),
         }
     }
+}
+
+/// Start the processes with the straw-boss daemon.
+pub fn server<W: Write>(procfile: &Procfile, writer: &mut W) -> Result<()> {
+    let pid_file = env::temp_dir().join("straw-boss.pid");
+    let cwd = env::current_dir()
+        .map_err(|err| format_err!("Unable to current working directory: {:?}", &err))?;
+
+    Daemonize::new()
+        .pid_file(pid_file)
+        .working_directory(cwd)
+        .start()
+        .map_err(|err| format_err!("Unable to start daemon: {:?}", &err))?;
+
+    start(procfile, writer)
 }
 
 /// Start all the processes described in the `Procfile`.
