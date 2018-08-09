@@ -37,8 +37,7 @@ impl Procfile {
 /// An action that the straw boss can do.
 #[derive(Debug)]
 pub enum Action {
-    Server(Procfile),
-    Start(Procfile),
+    Start(Procfile, bool),
     Yamlize(Procfile),
 }
 
@@ -47,30 +46,29 @@ impl Action {
     /// described. It writes its output to the `Write` implementor passed in.
     pub fn execute<W: Write>(&self, writer: &mut W) -> Result<()> {
         match *self {
-            Action::Server(ref procfile) => server(procfile, writer),
-            Action::Start(ref procfile) => start(procfile, writer),
+            Action::Start(ref procfile, daemon) => start(procfile, writer, daemon),
             Action::Yamlize(ref procfile) => yamlize(procfile, writer),
         }
     }
 }
 
-/// Start the processes with the straw-boss daemon.
-pub fn server<W: Write>(procfile: &Procfile, writer: &mut W) -> Result<()> {
-    let pid_file = env::temp_dir().join("straw-boss.pid");
-    let cwd = env::current_dir()
-        .map_err(|err| format_err!("Unable to current working directory: {:?}", &err))?;
-
-    Daemonize::new()
-        .pid_file(pid_file)
-        .working_directory(cwd)
-        .start()
-        .map_err(|err| format_err!("Unable to start daemon: {:?}", &err))?;
-
-    start(procfile, writer)
-}
-
 /// Start all the processes described in the `Procfile`.
-pub fn start<W: Write>(procfile: &Procfile, writer: &mut W) -> Result<()> {
+///
+/// If `is_daemon` is given, the server is started in the background, and this
+/// function returns immediately.
+pub fn start<W: Write>(procfile: &Procfile, writer: &mut W, is_daemon: bool) -> Result<()> {
+    if is_daemon {
+        let pid_file = env::temp_dir().join("straw-boss.pid");
+        let cwd = env::current_dir()
+            .map_err(|err| format_err!("Unable to get current working directory: {:?}", &err))?;
+
+        Daemonize::new()
+            .pid_file(pid_file)
+            .working_directory(cwd)
+            .start()
+            .map_err(|err| format_err!("Unable to start daemon: {:?}", &err))?;
+    }
+
     let services = procfile.read_services()?;
     let workers: Vec<Result<ServiceWorker>> = services
         .into_iter()

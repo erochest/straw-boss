@@ -14,13 +14,14 @@ mod utils;
 use utils::poll_processes;
 
 #[test]
-fn test_server() {
+fn test_daemon() {
     // The test here is really that we're not spawning this into another thread.
     let status = Command::main_binary()
         .unwrap()
         .arg("--procfile")
         .arg("./fixtures/Procfile.python")
-        .arg("server")
+        .arg("start")
+        .arg("--daemon")
         .status()
         .unwrap();
 
