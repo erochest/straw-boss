@@ -3,6 +3,7 @@
 
 extern crate clap;
 extern crate daemonize;
+extern crate dotenv;
 extern crate duct;
 #[macro_use]
 extern crate failure;
@@ -13,6 +14,11 @@ extern crate reqwest;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+#[cfg(test)]
+extern crate assert_fs;
+#[cfg(test)]
+extern crate predicates;
+extern crate rmp_serde;
 extern crate serde_yaml;
 extern crate shellwords;
 #[cfg(test)]
@@ -21,6 +27,9 @@ extern crate spectral;
 use std::io;
 
 pub mod actions;
+pub mod client;
+pub mod messaging;
+pub mod server;
 pub mod service;
 
 /// A convenience type alias for a specialization of `Result` that uses `failure::Error` for

@@ -19,9 +19,9 @@ fn test_start() {
     let _join = thread::spawn(move || {
         let _command = Command::main_binary()
             .unwrap()
+            .arg("start")
             .arg("--procfile")
             .arg("./fixtures/Procfile.python")
-            .arg("start")
             .unwrap();
     });
 
@@ -35,9 +35,9 @@ fn test_start() {
 fn test_pipe_commands() {
     let command = Command::main_binary()
         .unwrap()
+        .arg("start")
         .arg("--procfile")
         .arg("./fixtures/Procfile.pipe")
-        .arg("start")
         .unwrap();
 
     let output = String::from_utf8(command.stdout.clone()).unwrap();

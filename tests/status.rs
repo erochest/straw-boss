@@ -14,8 +14,7 @@ mod utils;
 use utils::poll_processes;
 
 #[test]
-fn test_daemon() {
-    // The test here is really that we're not spawning this into another thread.
+fn test_status() {
     let status = Command::main_binary()
         .unwrap()
         .arg("start")
@@ -25,9 +24,21 @@ fn test_daemon() {
         .status()
         .unwrap();
 
+    assert_that(&status.success()).is_true();
+
+    let command = Command::main_binary()
+        .unwrap()
+        .arg("status")
+        .output()
+        .unwrap();
+
+    let output = String::from_utf8(command.stdout.clone()).unwrap();
+    command.assert().success();
+
+    assert_that(&output).contains("python: python3 -m http.server 3040");
+
     let process_info = poll_processes("http.server", "3040", 10);
     process_info.as_ref().map(|p| p.kill(sysinfo::Signal::Kill));
 
-    assert_that(&status.success()).is_true();
     assert_that(&process_info).is_some();
 }

@@ -1,8 +1,14 @@
+use client::rest::RestManagerClient;
+use client::{ManagerClient, ManagerStatus};
 use daemonize::Daemonize;
+use failure::Error;
 use serde_yaml;
+use server::rest::RestManagerServer;
+use server::ManagerServer;
 use service::service;
 use service::service::Service;
 use service::worker::ServiceWorker;
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::Write;
@@ -37,7 +43,8 @@ impl Procfile {
 /// An action that the straw boss can do.
 #[derive(Debug)]
 pub enum Action {
-    Start(Procfile, bool),
+    Start(Procfile, bool, String),
+    Status(String),
     Yamlize(Procfile),
 }
 
@@ -46,7 +53,20 @@ impl Action {
     /// described. It writes its output to the `Write` implementor passed in.
     pub fn execute<W: Write>(&self, writer: &mut W) -> Result<()> {
         match *self {
-            Action::Start(ref procfile, daemon) => start(procfile, writer, daemon),
+            Action::Start(ref procfile, daemon, ref socket_domain) => {
+                start(procfile, writer, daemon, socket_domain)
+            }
+            Action::Status(ref socket_domain) => {
+                let client = RestManagerClient::at_path(PathBuf::from(socket_domain));
+                let status = status(&client)?;
+
+                match status {
+                    ManagerStatus::NotFound => Err(format_err!(
+                        "Straw-boss not running. Why don't you try `straw-boss start --daemon`"
+                    )),
+                    ManagerStatus::RunningTasks(_) => Ok(()),
+                }
+            }
             Action::Yamlize(ref procfile) => yamlize(procfile, writer),
         }
     }
@@ -56,7 +76,12 @@ impl Action {
 ///
 /// If `is_daemon` is given, the server is started in the background, and this
 /// function returns immediately.
-pub fn start<W: Write>(procfile: &Procfile, writer: &mut W, is_daemon: bool) -> Result<()> {
+pub fn start<W: Write>(
+    procfile: &Procfile,
+    writer: &mut W,
+    is_daemon: bool,
+    socket_domain: &str,
+) -> Result<()> {
     if is_daemon {
         let pid_file = env::temp_dir().join("straw-boss.pid");
         let cwd = env::current_dir()
@@ -76,25 +101,26 @@ pub fn start<W: Write>(procfile: &Procfile, writer: &mut W, is_daemon: bool) -> 
         .map(|mut w| w.start().map(|_| w))
         .collect();
 
-    let mut result = None;
-    let erred = workers.iter().any(|r| r.is_err());
+    let mut server = RestManagerServer::at_path(PathBuf::from(socket_domain));
+    server.initialize()?;
+    server.set_workers(workers.into_iter().filter_map(|w| w.ok()).collect());
+    server.start()
+}
 
-    for w in workers {
-        match w {
-            Ok(mut worker) => {
-                if erred {
-                    let _ = worker.kill();
-                }
-                let _ = worker.join();
-            }
-            Err(err) => {
-                let _ = writer.write_fmt(format_args!("Error starting process: {:?}", &err));
-                result = result.or(Some(Err(err)));
-            }
-        }
+/// Query a daemonized server to get the status of all of the tasks it's running.
+pub fn status<C: ManagerClient>(client: &C) -> Result<ManagerStatus> {
+    if client.is_running() {
+        client
+            .get_workers()
+            .map(|workers| {
+                workers
+                    .into_iter()
+                    .map(|w| (w.name, w.command))
+                    .collect::<HashMap<_, _>>()
+            }).map(ManagerStatus::RunningTasks)
+    } else {
+        Ok(ManagerStatus::NotFound)
     }
-
-    result.unwrap_or(Ok(()))
 }
 
 /// Read the processes in the `Procfile` and write them back out as YAML.

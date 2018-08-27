@@ -18,8 +18,9 @@ impl Running {
     /// it. This consumes the `Running`.
     fn join(self, service_name: &str) -> Result<Output> {
         let Running(_, tx, rx) = self;
-        tx.send(TaskMessage::Join)
-            .map_err(|err| format_err!("Unable to send message to {}: {:?}", &service_name, &err))?;
+        tx.send(TaskMessage::Join).map_err(|err| {
+            format_err!("Unable to send message to {}: {:?}", &service_name, &err)
+        })?;
         let response = rx.recv().map_err(|err| {
             format_err!(
                 "Unable to receive message from {}: {:?}",
@@ -103,6 +104,10 @@ impl ServiceWorker {
     /// Is this task running?
     pub fn is_running(&self) -> bool {
         self.worker.is_some()
+    }
+
+    pub fn service(&self) -> &Service {
+        &self.service
     }
 }
 
