@@ -18,6 +18,7 @@ fn test_daemon() {
     // The test here is really that we're not spawning this into another thread.
     let status = Command::main_binary()
         .unwrap()
+        .env("STRAWBOSS_PID_FILE", "/tmp/straw-boss.test-daemon.pid")
         .arg("start")
         .arg("--procfile")
         .arg("./fixtures/Procfile.python")

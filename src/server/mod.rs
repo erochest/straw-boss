@@ -1,8 +1,16 @@
 use service::service::Service;
 use service::worker::ServiceWorker;
+use std::path::PathBuf;
 use Result;
 
 pub mod rest;
+pub mod start;
+
+#[derive(Debug)]
+pub enum ServerRunMode {
+    Foreground,
+    Daemon(PathBuf),
+}
 
 pub trait ManagerServer {
     fn start(&self) -> Result<()>;

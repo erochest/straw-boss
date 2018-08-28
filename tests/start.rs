@@ -19,6 +19,7 @@ fn test_start() {
     let _join = thread::spawn(move || {
         let _command = Command::main_binary()
             .unwrap()
+            .env("STRAWBOSS_SOCKET_PATH", "/tmp/straw-boss.test-start.sock")
             .arg("start")
             .arg("--procfile")
             .arg("./fixtures/Procfile.python")
@@ -35,7 +36,10 @@ fn test_start() {
 fn test_pipe_commands() {
     let command = Command::main_binary()
         .unwrap()
-        .arg("start")
+        .env(
+            "STRAWBOSS_SOCKET_PATH",
+            "/tmp/straw-boss.test-pipe-commands.sock",
+        ).arg("start")
         .arg("--procfile")
         .arg("./fixtures/Procfile.pipe")
         .unwrap();

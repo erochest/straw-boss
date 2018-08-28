@@ -17,6 +17,7 @@ use utils::poll_processes;
 fn test_status() {
     let status = Command::main_binary()
         .unwrap()
+        .env("STRAWBOSS_SOCKET_PATH", "/tmp/straw-boss.test-status.sock")
         .arg("start")
         .arg("--procfile")
         .arg("./fixtures/Procfile.python")
@@ -28,6 +29,7 @@ fn test_status() {
 
     let command = Command::main_binary()
         .unwrap()
+        .env("STRAWBOSS_SOCKET_PATH", "/tmp/straw-boss.test-status.sock")
         .arg("status")
         .output()
         .unwrap();
@@ -35,7 +37,8 @@ fn test_status() {
     let output = String::from_utf8(command.stdout.clone()).unwrap();
     command.assert().success();
 
-    assert_that(&output).contains("python: python3 -m http.server 3040");
+    assert_that(&output).contains("RUNNING: python: python3 -m http.server 3040");
+    assert_that(&output).contains("COMPLETE (0): ls: ls fixtures");
 
     let process_info = poll_processes("http.server", "3040", 10);
     process_info.as_ref().map(|p| p.kill(sysinfo::Signal::Kill));

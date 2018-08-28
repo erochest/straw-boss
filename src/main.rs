@@ -6,18 +6,22 @@ extern crate failure;
 
 use clap::{Arg, ArgMatches, SubCommand};
 use std::env;
+use std::path::PathBuf;
 
 use straw_boss::actions::Action;
 use straw_boss::procfile::Procfile;
 use straw_boss::server::rest::DOMAIN_SOCKET;
+use straw_boss::server::ServerRunMode;
 use straw_boss::Result;
+
+const SOCKET_PATH_VAR: &'static str = "STRAWBOSS_SOCKET_PATH";
+const PID_FILE_VAR: &'static str = "STRAWBOSS_PID_FILE";
 
 fn main() -> Result<()> {
     let action = parse_args()?;
     straw_boss::run(action)
 }
 
-// TODO: Take an option/envvar for the domain socket path.
 fn parse_args() -> Result<Action> {
     let procfile = Arg::with_name("procfile")
         .short("p")
@@ -45,16 +49,18 @@ fn parse_args() -> Result<Action> {
 
     if let Some(sub_matches) = matches.subcommand_matches("start") {
         let procfile = get_procfile(&sub_matches)?;
-        let socket_path =
-            env::var("STRAWBOSS_SOCKET_PATH").unwrap_or_else(|_| String::from(DOMAIN_SOCKET));
-        Ok(Action::Start(
-            procfile,
-            sub_matches.is_present("daemon"),
-            socket_path,
-        ))
+        let socket_path = env::var(SOCKET_PATH_VAR).unwrap_or_else(|_| String::from(DOMAIN_SOCKET));
+        let run_mode = if sub_matches.is_present("daemon") {
+            let pid_file = env::var(PID_FILE_VAR).unwrap_or_else(|_| {
+                String::from(env::temp_dir().join("straw-boss.pid").to_string_lossy())
+            });
+            ServerRunMode::Daemon(PathBuf::from(pid_file))
+        } else {
+            ServerRunMode::Foreground
+        };
+        Ok(Action::Start(procfile, run_mode, socket_path))
     } else if let Some(_sub_matches) = matches.subcommand_matches("status") {
-        let socket_path =
-            env::var("STRAWBOSS_SOCKET_PATH").unwrap_or_else(|_| String::from(DOMAIN_SOCKET));
+        let socket_path = env::var(SOCKET_PATH_VAR).unwrap_or_else(|_| String::from(DOMAIN_SOCKET));
         Ok(Action::Status(socket_path))
     } else if let Some(sub_matches) = matches.subcommand_matches("yamlize") {
         let procfile = get_procfile(&sub_matches)?;

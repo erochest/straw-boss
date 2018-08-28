@@ -1,5 +1,26 @@
-mod status {
-    use actions::status;
+use client::{ManagerClient, ManagerStatus};
+use std::collections::HashMap;
+use Result;
+
+/// Query a daemonized server to get the status of all of the tasks it's running.
+pub fn status<C: ManagerClient>(client: &C) -> Result<ManagerStatus> {
+    if client.is_running() {
+        client
+            .get_workers()
+            .map(|workers| {
+                workers
+                    .into_iter()
+                    .map(|w| (w.name, w.command))
+                    .collect::<HashMap<_, _>>()
+            }).map(ManagerStatus::RunningTasks)
+    } else {
+        Ok(ManagerStatus::NotFound)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::status;
     use client::{ManagerClient, ManagerStatus};
     use server::Worker;
     use spectral::prelude::*;

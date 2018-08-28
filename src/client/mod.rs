@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use Result;
 
 pub mod rest;
+pub mod status;
 
 pub trait ManagerClient {
     fn is_running(&self) -> bool;
