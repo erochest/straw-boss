@@ -1,4 +1,4 @@
-use messaging;
+use messaging::{Receiver, Sender};
 use server::RequestMessage::*;
 use server::ResponseMessage::*;
 use server::{RequestMessage, Worker};
@@ -46,7 +46,7 @@ impl MockServer {
         let listener = UnixListener::bind(socket).unwrap();
         for stream in listener.incoming() {
             let mut stream = stream.unwrap();
-            let request: RequestMessage = messaging::recv(&mut stream).unwrap();
+            let request: RequestMessage = stream.recv().unwrap();
             match request {
                 GetWorkers => {
                     {
@@ -54,7 +54,7 @@ impl MockServer {
                         calls.push(GetWorkers);
                     }
                     let response = Workers(self.workers.clone());
-                    messaging::send(&mut stream, response).unwrap();
+                    stream.send(response).unwrap();
                 }
                 Quit => {
                     let mut calls = self.calls.write().unwrap();

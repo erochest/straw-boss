@@ -22,3 +22,25 @@ This contains a server, which owns a listener, and types for running and reporti
 This is pretty much everything else.
 
 This contains a stream and consumes reporting types.
+
+## Domain
+
+### Service
+
+Has information about a command to run (name and the command).
+
+### ServiceProcess
+
+A service with a handle to the executing process.
+
+### Manager
+
+Runs services.
+
+### Server
+
+Has a manager and handles communication with it.
+
+### Client
+
+Communicates with a server to get information about a manager.

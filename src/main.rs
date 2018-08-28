@@ -1,15 +1,14 @@
 #[macro_use]
 extern crate clap;
-extern crate dotenv;
 extern crate straw_boss;
 #[macro_use]
 extern crate failure;
 
 use clap::{Arg, ArgMatches, SubCommand};
-use dotenv::dotenv;
 use std::env;
 
-use straw_boss::actions::{Action, Procfile};
+use straw_boss::actions::Action;
+use straw_boss::procfile::Procfile;
 use straw_boss::server::rest::DOMAIN_SOCKET;
 use straw_boss::Result;
 
@@ -20,8 +19,6 @@ fn main() -> Result<()> {
 
 // TODO: Take an option/envvar for the domain socket path.
 fn parse_args() -> Result<Action> {
-    dotenv().map_err(|err| format_err!("Unable to load .env: {:?}", &err))?;
-
     let procfile = Arg::with_name("procfile")
         .short("p")
         .long("procfile")
@@ -55,7 +52,7 @@ fn parse_args() -> Result<Action> {
             sub_matches.is_present("daemon"),
             socket_path,
         ))
-    } else if let Some(sub_matches) = matches.subcommand_matches("status") {
+    } else if let Some(_sub_matches) = matches.subcommand_matches("status") {
         let socket_path =
             env::var("STRAWBOSS_SOCKET_PATH").unwrap_or_else(|_| String::from(DOMAIN_SOCKET));
         Ok(Action::Status(socket_path))

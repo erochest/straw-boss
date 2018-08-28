@@ -55,10 +55,12 @@ mod test {
     }
 
     mod send {
-        use super::super::send;
+        use super::super::Sender;
         use super::setup;
         use spectral::prelude::*;
+        use std::collections::HashMap;
         use std::io::{Read, Write};
+        use std::net::Shutdown;
         use std::os::unix::net::UnixStream;
         use std::sync::{Arc, RwLock};
         use std::thread;
@@ -83,18 +85,40 @@ mod test {
         fn test_sends_value() {
             let socket_path = "/tmp/straw-boss.sends-value.sock";
             let value: Arc<RwLock<Option<Vec<u8>>>> = Arc::new(RwLock::new(None));
+            let threaded_value = value.clone();
 
             let handle = thread::spawn(move || {
                 let server = setup(socket_path);
                 let (mut stream, _) = server.accept().unwrap();
-                stream.write(b"hello, world").unwrap();
+                let mut buffer = Vec::new();
+
+                stream.read_to_end(&mut buffer).unwrap();
+                {
+                    let mut value_lock = threaded_value.write().unwrap();
+                    (*value_lock).replace(buffer);
+                }
+
                 thread::sleep(Duration::from_secs(2));
             });
 
             thread::sleep(Duration::from_secs(1));
-            assert_that(&UnixStream::connect(socket_path)).is_ok();
+            let stream = UnixStream::connect(socket_path);
+            assert_that(&stream).is_ok();
+            if let Ok(mut stream) = stream {
+                let mut input: HashMap<String, u8> = HashMap::new();
+                input.insert(String::from("answer"), 42);
+                assert_that(&stream.send(input)).is_ok();
+                stream.flush().unwrap();
+                stream.shutdown(Shutdown::Both).unwrap();
 
-            handle.join().unwrap();
+                handle.join().unwrap();
+
+                let value = value.clone();
+                let value = value.read().unwrap();
+                assert_that(&*value)
+                    .is_some()
+                    .is_equal_to(&b"\x81\xa6\x61\x6e\x73\x77\x65\x72\x2a".to_vec());
+            }
         }
     }
 

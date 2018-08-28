@@ -6,7 +6,6 @@ authors = ["Eric Rochester <eric.rochester@willowtreeapps.com>"]
 [dependencies]
 clap = "2.30.0"
 daemonize = "0.3.0"
-dotenv = "0.13.0"
 duct = "0.11.0"
 failure = "0.1.1"
 failure_derive = "0.1.1"

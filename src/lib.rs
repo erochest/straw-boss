@@ -1,9 +1,9 @@
 #![feature(try_from)]
 #![feature(plugin)]
+#![feature(option_replace)]
 
 extern crate clap;
 extern crate daemonize;
-extern crate dotenv;
 extern crate duct;
 #[macro_use]
 extern crate failure;
@@ -29,8 +29,10 @@ use std::io;
 pub mod actions;
 pub mod client;
 pub mod messaging;
+pub mod procfile;
 pub mod server;
 pub mod service;
+pub mod yamlize;
 
 /// A convenience type alias for a specialization of `Result` that uses `failure::Error` for
 /// exceptions.
