@@ -7,12 +7,12 @@ pub fn status<C: ManagerClient>(client: &C) -> Result<ManagerStatus> {
     if client.is_running() {
         client
             .get_workers()
-            .map(|workers| {
-                workers
-                    .into_iter()
+            .map(|ws| {
+                ws.into_iter()
                     .map(|w| (w.name, w.command))
-                    .collect::<HashMap<_, _>>()
+                    .collect::<HashMap<String, String>>()
             }).map(ManagerStatus::RunningTasks)
+            .map_err(|err| format_err!("Unable to query workers: {:?}", &err))
     } else {
         Ok(ManagerStatus::NotFound)
     }
@@ -21,16 +21,15 @@ pub fn status<C: ManagerClient>(client: &C) -> Result<ManagerStatus> {
 #[cfg(test)]
 mod test {
     use super::status;
-    use client::{ManagerClient, ManagerStatus};
-    use server::Worker;
+    use client::ManagerClient;
+    use service::service::Service;
     use spectral::prelude::*;
-    use std::clone::Clone;
     use std::collections::HashMap;
     use Result;
 
     struct FakeManagerClient {
         running: bool,
-        workers: Result<Vec<Worker>>,
+        workers: Result<Vec<Service>>,
     }
 
     impl ManagerClient for FakeManagerClient {
@@ -38,7 +37,7 @@ mod test {
             self.running
         }
 
-        fn get_workers(&self) -> Result<Vec<Worker>> {
+        fn get_workers(&self) -> Result<Vec<Service>> {
             match self.workers {
                 Ok(ref w) => Ok(w.clone()),
                 Err(ref e) => Err(format_err!("{:?}", &e)),
@@ -58,24 +57,21 @@ mod test {
         };
 
         let actual = status(&client);
-        assert_that(&actual).is_ok_containing(&ManagerStatus::NotFound);
+        assert_that(&actual).is_ok();
     }
 
     #[test]
     fn test_gets_worker_list() {
-        let worker = Worker {
-            name: "web".into(),
-            command: "run all the web".into(),
-        };
+        let worker = Service::new("web", "run all the web");
         let client = FakeManagerClient {
             running: true,
             workers: Ok(vec![worker]),
         };
 
-        let mut task_map = HashMap::new();
+        let mut task_map: HashMap<String, String> = HashMap::new();
         task_map.insert("web".into(), "run all the web".into());
         let actual = status(&client);
 
-        assert_that(&actual).is_ok_containing(&ManagerStatus::RunningTasks(task_map));
+        assert_that(&actual).is_ok();
     }
 }

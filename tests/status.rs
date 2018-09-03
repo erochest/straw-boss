@@ -6,6 +6,8 @@ extern crate sysinfo;
 use assert_cmd::prelude::*;
 use spectral::assert_that;
 use spectral::prelude::*;
+use std::fs;
+use std::path::PathBuf;
 use std::process::Command;
 use sysinfo::ProcessExt;
 
@@ -15,9 +17,19 @@ use utils::poll_processes;
 
 #[test]
 fn test_status() {
+    let socket_file = PathBuf::from("/tmp/straw-boss.test-status.sock");
+    if socket_file.exists() {
+        fs::remove_file(&socket_file).unwrap();
+    }
+    let pid_file = PathBuf::from("/tmp/straw-boss.test-status.pid");
+    if pid_file.exists() {
+        fs::remove_file(&pid_file).unwrap();
+    }
+
     let status = Command::main_binary()
         .unwrap()
-        .env("STRAWBOSS_SOCKET_PATH", "/tmp/straw-boss.test-status.sock")
+        .env("STRAWBOSS_SOCKET_PATH", &*socket_file.to_string_lossy())
+        .env("STRAWBOSS_PID_FILE", &pid_file)
         .arg("start")
         .arg("--procfile")
         .arg("./fixtures/Procfile.python")
@@ -29,7 +41,7 @@ fn test_status() {
 
     let command = Command::main_binary()
         .unwrap()
-        .env("STRAWBOSS_SOCKET_PATH", "/tmp/straw-boss.test-status.sock")
+        .env("STRAWBOSS_SOCKET_PATH", &*socket_file.to_string_lossy())
         .arg("status")
         .output()
         .unwrap();

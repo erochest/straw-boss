@@ -1,12 +1,15 @@
+use chrono::prelude::*;
 use client::rest::RestManagerClient;
 use client::ManagerClient;
 use server::rest::RestManagerServer;
-use server::{ManagerServer, Worker};
+use server::ManagerServer;
 use service::service::Service;
 use service::worker::ServiceWorker;
 use spectral::prelude::*;
+use std::env;
 use std::fs;
 use std::path::PathBuf;
+use std::process;
 use std::thread;
 use std::time::Duration;
 
@@ -43,18 +46,40 @@ fn test_removes_domain_socket_when_done() {
 }
 
 #[test]
+fn test_starts_workers() {
+    let socket_path = setup("test_starts_workers");
+    let mut server = RestManagerServer::at_path(socket_path);
+    let now = Utc::now();
+    let filename = format!(
+        "straw-boss.starts-workers.{}.{}",
+        now.timestamp(),
+        process::id()
+    );
+    let tmpfile = env::temp_dir().join(filename);
+
+    if tmpfile.exists() {
+        fs::remove_file(&tmpfile).unwrap();
+    }
+
+    assert_that(&server.start_workers(vec![Service::new(
+        "touch",
+        &format!("touch {:?}", &tmpfile),
+    )])).is_ok();
+    thread::sleep(Duration::from_secs(1));
+    assert_that(&tmpfile).exists();
+}
+
+#[test]
 fn test_get_workers_response_with_workers() {
     let socket_path = setup("test_get_workers_response_with_workers");
     let server_socket = socket_path.clone();
 
     let handle = thread::spawn(|| {
         let mut server = RestManagerServer::at_path(server_socket);
-        server.set_workers(vec![ServiceWorker::new(Service::new(
-            "python",
-            "python3 -m http.server 3040",
-        ))]);
-        server.initialize().unwrap();
-        server.start().unwrap();
+        server
+            .start_workers(vec![Service::new("python", "python3 -m http.server 3040")])
+            .unwrap();
+        server.start_server().unwrap();
     });
 
     thread::sleep(Duration::from_secs(1));
@@ -64,7 +89,7 @@ fn test_get_workers_response_with_workers() {
     let workers = client.get_workers();
     assert_that(&workers)
         .is_ok()
-        .is_equal_to(&vec![Worker::new("python", "python3 -m http.server 3040")]);
+        .is_equal_to(&vec![Service::new("python", "python3 -m http.server 3040")]);
 
     assert_that(&client.stop_server()).is_ok();
     assert_that(&handle.join()).is_ok();
@@ -78,8 +103,7 @@ fn test_exits_when_quit() {
 
     let handle = thread::spawn(move || {
         let mut server = RestManagerServer::at_path(server_socket);
-        server.initialize().unwrap();
-        server.start().unwrap();
+        server.start_server().unwrap();
     });
 
     thread::sleep(Duration::from_secs(1));

@@ -1,9 +1,10 @@
 use client::rest::RestManagerClient;
 use client::status::status;
-use client::ManagerStatus;
 use procfile::Procfile;
+use server::rest::RestManagerServer;
 use server::start::start;
-use server::ServerRunMode;
+use server::{ManagerServer, ServerRunMode};
+use service::worker::ServiceWorker;
 use std::io::Write;
 use std::path::PathBuf;
 use yamlize::yamlize;
@@ -20,21 +21,20 @@ pub enum Action {
 impl Action {
     /// Execute an action. This dispatches to the appropriate function to take the action
     /// described. It writes its output to the `Write` implementor passed in.
-    pub fn execute<W: Write>(&self, writer: &mut W) -> Result<()> {
-        match *self {
-            Action::Start(ref procfile, ref daemon, ref socket_domain) => {
-                start(procfile, writer, daemon, socket_domain)
+    pub fn execute<W: Write>(self, writer: &mut W) -> Result<()> {
+        match self {
+            Action::Start(procfile, run_mode, socket_domain) => {
+                let mut server = RestManagerServer::at_path(PathBuf::from(socket_domain));
+                let services = procfile.read_services()?;
+                start(&mut server, run_mode, services)
             }
-            Action::Status(ref socket_domain) => {
+            Action::Status(socket_domain) => {
                 let client = RestManagerClient::at_path(PathBuf::from(socket_domain));
-                let status = status(&client)?;
-
-                match status {
-                    ManagerStatus::NotFound => Err(format_err!(
-                        "Straw-boss not running. Why don't you try `straw-boss start --daemon`"
-                    )),
-                    ManagerStatus::RunningTasks(_) => Ok(()),
-                }
+                status(&client).and_then(|ms| {
+                    writer
+                        .write_all(ms.get_message().as_bytes())
+                        .map_err(|err| format_err!("Unable to write output: {:?}", &err))
+                })
             }
             Action::Yamlize(ref procfile) => yamlize(procfile, writer),
         }

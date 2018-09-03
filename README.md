@@ -33,10 +33,6 @@ Has information about a command to run (name and the command).
 
 A service with a handle to the executing process.
 
-### Manager
-
-Runs services.
-
 ### Server
 
 Has a manager and handles communication with it.

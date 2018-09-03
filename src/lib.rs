@@ -2,6 +2,7 @@
 #![feature(plugin)]
 #![feature(option_replace)]
 
+extern crate chrono;
 extern crate clap;
 extern crate daemonize;
 extern crate duct;

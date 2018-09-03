@@ -1,43 +1,110 @@
-use daemonize::Daemonize;
-use procfile::Procfile;
-use server::rest::RestManagerServer;
 use server::{ManagerServer, ServerRunMode};
-use service::worker::ServiceWorker;
-use std::env;
-use std::io::Write;
-use std::path::PathBuf;
+use service::service::Service;
 use Result;
 
 /// Start all the processes described in the `Procfile`.
 ///
 /// If `is_daemon` is given, the server is started in the background, and this
 /// function returns immediately.
-pub fn start<W: Write>(
-    procfile: &Procfile,
-    _writer: &mut W,
-    run_mode: &ServerRunMode,
-    socket_domain: &str,
+pub fn start(
+    server: &mut impl ManagerServer,
+    run_mode: ServerRunMode,
+    workers: Vec<Service>,
 ) -> Result<()> {
-    if let ServerRunMode::Daemon(ref pid_file) = run_mode {
-        let cwd = env::current_dir()
-            .map_err(|err| format_err!("Unable to get current working directory: {:?}", &err))?;
-
-        Daemonize::new()
-            .pid_file(pid_file)
-            .working_directory(cwd)
-            .start()
-            .map_err(|err| format_err!("Unable to start daemon: {:?}", &err))?;
+    if let ServerRunMode::Daemon(pid_file) = run_mode {
+        server.daemonize(pid_file)?;
     }
 
-    let services = procfile.read_services()?;
-    let workers: Vec<Result<ServiceWorker>> = services
-        .into_iter()
-        .map(|s| ServiceWorker::new(s))
-        .map(|mut w| w.start().map(|_| w))
-        .collect();
+    server.start_workers(workers)?;
+    server.start_server()
+}
 
-    let mut server = RestManagerServer::at_path(PathBuf::from(socket_domain));
-    server.initialize()?;
-    server.set_workers(workers.into_iter().filter_map(|w| w.ok()).collect());
-    server.start()
+#[cfg(test)]
+mod test {
+    use super::start;
+    use server::ManagerServer;
+    use server::ServerRunMode;
+    use service::service::Service;
+    use spectral::prelude::*;
+    use std::path::Path;
+    use std::sync::RwLock;
+    use Result;
+
+    #[derive(Debug, PartialEq)]
+    enum ServerCalls {
+        Daemonize,
+        StartServer,
+        StartWorkers,
+    }
+
+    struct MockServer {
+        calls: RwLock<Vec<ServerCalls>>,
+    }
+
+    impl MockServer {
+        fn new() -> MockServer {
+            MockServer {
+                calls: RwLock::new(Vec::new()),
+            }
+        }
+
+        fn push(&self, call: ServerCalls) -> Result<()> {
+            let mut calls = self
+                .calls
+                .write()
+                .map_err(|e| format_err!("Unable to write to calls: {:?}", &e))?;
+            (*calls).push(call);
+            Ok(())
+        }
+    }
+
+    impl ManagerServer for MockServer {
+        fn daemonize<P: AsRef<Path>>(&self, _pid_file: P) -> Result<()> {
+            self.push(ServerCalls::Daemonize)
+        }
+
+        fn start_server(&mut self) -> Result<()> {
+            self.push(ServerCalls::StartServer)
+        }
+
+        fn start_workers(&mut self, _workers: Vec<Service>) -> Result<()> {
+            self.push(ServerCalls::StartWorkers)
+        }
+    }
+
+    #[test]
+    fn test_daemon_mode_calls_daemonize() {
+        let mut server = MockServer::new();
+        assert_that(&start(
+            &mut server,
+            ServerRunMode::Daemon("/dev/null".into()),
+            Vec::new(),
+        )).is_ok();
+        let calls = server.calls.read().unwrap();
+        assert_that(&*calls).contains(ServerCalls::Daemonize);
+    }
+
+    #[test]
+    fn test_foreground_does_not_call_daemonize() {
+        let mut server = MockServer::new();
+        assert_that(&start(&mut server, ServerRunMode::Foreground, Vec::new())).is_ok();
+        let calls = server.calls.read().unwrap();
+        assert_that(&*calls).does_not_contain(ServerCalls::Daemonize);
+    }
+
+    #[test]
+    fn test_starts_workers() {
+        let mut server = MockServer::new();
+        assert_that(&start(&mut server, ServerRunMode::Foreground, Vec::new())).is_ok();
+        let calls = server.calls.read().unwrap();
+        assert_that(&*calls).contains(ServerCalls::StartWorkers);
+    }
+
+    #[test]
+    fn test_starts_server() {
+        let mut server = MockServer::new();
+        assert_that(&start(&mut server, ServerRunMode::Foreground, Vec::new())).is_ok();
+        let calls = server.calls.read().unwrap();
+        assert_that(&*calls).contains(ServerCalls::StartServer);
+    }
 }

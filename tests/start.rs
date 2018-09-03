@@ -6,6 +6,8 @@ extern crate sysinfo;
 use assert_cmd::prelude::*;
 use spectral::assert_that;
 use spectral::prelude::*;
+use std::fs;
+use std::path::PathBuf;
 use std::process::Command;
 use std::thread;
 use sysinfo::ProcessExt;
@@ -16,11 +18,18 @@ use utils::poll_processes;
 
 #[test]
 fn test_start() {
+    let socket = PathBuf::from("/tmp/straw-boss.test-start.sock");
+    if socket.exists() {
+        fs::remove_file(&socket).unwrap();
+    }
+
     let _join = thread::spawn(move || {
         let _command = Command::main_binary()
             .unwrap()
-            .env("STRAWBOSS_SOCKET_PATH", "/tmp/straw-boss.test-start.sock")
-            .arg("start")
+            .env(
+                "STRAWBOSS_SOCKET_PATH",
+                String::from(socket.to_string_lossy()),
+            ).arg("start")
             .arg("--procfile")
             .arg("./fixtures/Procfile.python")
             .unwrap();
@@ -34,11 +43,16 @@ fn test_start() {
 
 #[test]
 fn test_pipe_commands() {
+    let socket = PathBuf::from("/tmp/straw-boss.test-pipe-commands.sock");
+    if socket.exists() {
+        fs::remove_file(&socket).unwrap();
+    }
+
     let command = Command::main_binary()
         .unwrap()
         .env(
             "STRAWBOSS_SOCKET_PATH",
-            "/tmp/straw-boss.test-pipe-commands.sock",
+            String::from(socket.to_string_lossy()),
         ).arg("start")
         .arg("--procfile")
         .arg("./fixtures/Procfile.pipe")

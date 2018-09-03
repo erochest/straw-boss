@@ -1,7 +1,8 @@
-use client::{ManagerClient, Worker};
+use client::ManagerClient;
 use messaging::{connect, Receiver, Sender};
 use server::rest::DOMAIN_SOCKET;
 use server::{RequestMessage, ResponseMessage};
+use service::service::Service;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use Result;
@@ -29,15 +30,13 @@ impl ManagerClient for RestManagerClient {
         self.socket_path.exists()
     }
 
-    fn get_workers(&self) -> Result<Vec<Worker>> {
+    fn get_workers(&self) -> Result<Vec<Service>> {
         let mut stream = self.connect()?;
         stream.send(RequestMessage::GetWorkers)?;
-        let result = match stream.recv()? {
-            ResponseMessage::Workers(workers) => Ok(workers),
-            msg => Err(format_err!("Invalid response to GetWorkers: {:?}", &msg)),
-        };
-
-        result
+        stream.recv().map(|response: ResponseMessage| {
+            let ResponseMessage::Workers(workers) = response;
+            workers
+        })
     }
 
     fn stop_server(&self) -> Result<()> {

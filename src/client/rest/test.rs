@@ -1,7 +1,8 @@
 use messaging::{Receiver, Sender};
+use server::RequestMessage;
 use server::RequestMessage::*;
 use server::ResponseMessage::*;
-use server::{RequestMessage, Worker};
+use service::service::Service;
 use std::fs;
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
@@ -19,14 +20,14 @@ impl Drop for DisappearingFile {
 
 struct MockServer {
     pub socket_path: PathBuf,
-    pub workers: Vec<Worker>,
+    pub workers: Vec<Service>,
     pub calls: Arc<RwLock<Vec<RequestMessage>>>,
 }
 
 impl MockServer {
     fn new<P: AsRef<Path>>(
         socket_path: P,
-        workers: Vec<Worker>,
+        workers: Vec<Service>,
         calls: Arc<RwLock<Vec<RequestMessage>>>,
     ) -> MockServer {
         let socket_path = socket_path.as_ref().to_path_buf();
@@ -106,7 +107,7 @@ mod get_workers {
     use rmp_serde::Serializer;
     use serde::Serialize;
     use server::RequestMessage::*;
-    use server::Worker;
+    use service::service::Service;
     use spectral::prelude::*;
     use std::os::unix::net::UnixStream;
     use std::path::Path;
@@ -162,7 +163,7 @@ mod get_workers {
         let calls = Arc::new(RwLock::new(vec![]));
         let server_calls = calls.clone();
         let client = RestManagerClient::at_path(socket_path.clone());
-        let workers = vec![Worker::new("web", "spawn server")];
+        let workers = vec![Service::new("web", "spawn server")];
 
         let handle = thread::spawn(move || {
             let mut server = MockServer::new(server_socket_path, workers, server_calls);
@@ -171,7 +172,7 @@ mod get_workers {
 
         thread::sleep(Duration::from_secs(1));
         assert_that(&client.get_workers())
-            .is_ok_containing(vec![Worker::new("web", "spawn server")]);
+            .is_ok_containing(vec![Service::new("web", "spawn server")]);
         {
             let calls = calls.read().unwrap();
             assert_that(&calls[0]).is_equal_to(&GetWorkers);

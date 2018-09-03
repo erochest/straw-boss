@@ -1,10 +1,10 @@
 use messaging::{Receiver, Sender};
-use server::Worker;
 use server::{ManagerServer, RequestMessage, ResponseMessage};
-use service::worker::ServiceWorker;
+use service::service::Service;
+use service::worker::{ServiceWorker, Worker};
 use std::fs;
 use std::os::unix::net::UnixListener;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use Result;
 
 pub const DOMAIN_SOCKET: &'static str = "/tmp/straw-boss-server.sock";
@@ -28,7 +28,7 @@ impl RestManagerServer {
         }
     }
 
-    pub fn initialize(&mut self) -> Result<()> {
+    fn initialize(&mut self) -> Result<()> {
         let listener = UnixListener::bind(&self.socket_path).map_err(|err| {
             format_err!("Unable to open socket: {:?}: {:?}", &self.socket_path, &err)
         })?;
@@ -36,14 +36,20 @@ impl RestManagerServer {
 
         Ok(())
     }
-
-    pub fn set_workers(&mut self, workers: Vec<ServiceWorker>) {
-        self.workers = workers;
-    }
 }
 
 impl ManagerServer for RestManagerServer {
-    fn start(&self) -> Result<()> {
+    fn start_workers(&mut self, workers: Vec<Service>) -> Result<()> {
+        self.workers = workers
+            .into_iter()
+            .map(ServiceWorker::new)
+            .map(|mut w| w.start().and(Ok(w)))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(())
+    }
+
+    fn start_server(&mut self) -> Result<()> {
+        self.initialize()?;
         self.listener.iter().try_for_each(|listener| {
             for stream in listener.incoming() {
                 let mut stream = stream
@@ -52,12 +58,7 @@ impl ManagerServer for RestManagerServer {
                 match request {
                     RequestMessage::GetWorkers => {
                         let response = ResponseMessage::Workers(
-                            self.workers
-                                .iter()
-                                .map(|sw| {
-                                    let service = sw.service();
-                                    Worker::new(&service.name, &service.command)
-                                }).collect(),
+                            self.workers.iter().map(|sw| sw.service().clone()).collect(),
                         );
                         stream.send(response)?;
                     }

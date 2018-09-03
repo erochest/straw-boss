@@ -1,6 +1,7 @@
+use daemonize::Daemonize;
 use service::service::Service;
-use service::worker::ServiceWorker;
-use std::path::PathBuf;
+use std::env;
+use std::path::{Path, PathBuf};
 use Result;
 
 pub mod rest;
@@ -12,49 +13,30 @@ pub enum ServerRunMode {
     Daemon(PathBuf),
 }
 
+// TODO: Compose in a manager to run the workers. Don't have the server do it.
 pub trait ManagerServer {
-    fn start(&self) -> Result<()>;
+    fn daemonize<P: AsRef<Path>>(&self, pid_file: P) -> Result<()> {
+        let cwd = env::current_dir()
+            .map_err(|err| format_err!("Unable to get current working directory: {:?}", &err))?;
+
+        Daemonize::new()
+            .pid_file(pid_file)
+            .working_directory(cwd)
+            .start()
+            .map_err(|err| format_err!("Unable to start daemon: {:?}", &err))
+    }
+
+    fn start_workers(&mut self, workers: Vec<Service>) -> Result<()>;
+    fn start_server(&mut self) -> Result<()>;
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub enum RequestMessage {
-    Quit,
     GetWorkers,
+    Quit,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub enum ResponseMessage {
-    Workers(Vec<Worker>),
-    Ok,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Worker {
-    pub name: String,
-    pub command: String,
-}
-
-impl Worker {
-    pub fn new(name: &str, command: &str) -> Worker {
-        Worker {
-            name: name.into(),
-            command: command.into(),
-        }
-    }
-}
-
-// TODO: Probably need to just use either `Service` or `Worker`.
-impl From<Service> for Worker {
-    fn from(service: Service) -> Worker {
-        Worker {
-            name: service.name,
-            command: service.command,
-        }
-    }
-}
-
-impl From<ServiceWorker> for Worker {
-    fn from(sw: ServiceWorker) -> Worker {
-        Worker::from(sw.service().clone())
-    }
+    Workers(Vec<Service>),
 }
