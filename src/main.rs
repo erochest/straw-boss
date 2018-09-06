@@ -39,6 +39,7 @@ fn parse_args() -> Result<Action> {
                         "Run the straw boss task manager in the background as a server/daemon.",
                     )),
             ).subcommand(SubCommand::with_name("status").about("This queries daemonized tasks."))
+            .subcommand(SubCommand::with_name("stop").about("This stops a running server."))
             .subcommand(
                 SubCommand::with_name("yamlize")
                     .about(
@@ -49,7 +50,7 @@ fn parse_args() -> Result<Action> {
 
     if let Some(sub_matches) = matches.subcommand_matches("start") {
         let procfile = get_procfile(&sub_matches)?;
-        let socket_path = env::var(SOCKET_PATH_VAR).unwrap_or_else(|_| String::from(DOMAIN_SOCKET));
+        let socket_path = get_socket_path();
         let run_mode = if sub_matches.is_present("daemon") {
             let pid_file = env::var(PID_FILE_VAR).unwrap_or_else(|_| {
                 String::from(env::temp_dir().join("straw-boss.pid").to_string_lossy())
@@ -60,8 +61,11 @@ fn parse_args() -> Result<Action> {
         };
         Ok(Action::Start(procfile, run_mode, socket_path))
     } else if let Some(_sub_matches) = matches.subcommand_matches("status") {
-        let socket_path = env::var(SOCKET_PATH_VAR).unwrap_or_else(|_| String::from(DOMAIN_SOCKET));
+        let socket_path = get_socket_path();
         Ok(Action::Status(socket_path))
+    } else if let Some(_sub_matches) = matches.subcommand_matches("stop") {
+        let socket_path = get_socket_path();
+        Ok(Action::Stop(socket_path))
     } else if let Some(sub_matches) = matches.subcommand_matches("yamlize") {
         let procfile = get_procfile(&sub_matches)?;
         Ok(Action::Yamlize(procfile))
@@ -79,4 +83,8 @@ fn get_procfile(matches: &ArgMatches) -> Result<Procfile> {
     let procfile = matches.value_of("procfile").unwrap_or("Procfile");
     let procfile = Procfile::new(pwd.join(&procfile));
     Ok(procfile)
+}
+
+fn get_socket_path() -> PathBuf {
+    PathBuf::from(env::var(SOCKET_PATH_VAR).unwrap_or_else(|_| String::from(DOMAIN_SOCKET)))
 }

@@ -4,7 +4,7 @@ use service::service::Service;
 use service::worker::{ServiceWorker, Worker};
 use std::fs;
 use std::os::unix::net::UnixListener;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use Result;
 
 pub const DOMAIN_SOCKET: &'static str = "/tmp/straw-boss-server.sock";
@@ -62,7 +62,7 @@ impl ManagerServer for RestManagerServer {
                         );
                         stream.send(response)?;
                     }
-                    RequestMessage::Quit => break,
+                    RequestMessage::Stop => break,
                 }
             }
             Ok(())

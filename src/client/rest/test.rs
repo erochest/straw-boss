@@ -57,9 +57,9 @@ impl MockServer {
                     let response = Workers(self.workers.clone());
                     stream.send(response).unwrap();
                 }
-                Quit => {
+                Stop => {
                     let mut calls = self.calls.write().unwrap();
-                    calls.push(Quit);
+                    calls.push(Stop);
                     return;
                 }
             }
@@ -121,7 +121,7 @@ mod get_workers {
         let mut stream = UnixStream::connect(socket_path)
             .map_err(|err| format_err!("Unable to connect to {:?}: {:?}", socket_path, &err))?;
         let mut ser = Serializer::new(&mut stream);
-        Quit.serialize(&mut ser)
+        Stop.serialize(&mut ser)
             .map_err(|err| format_err!("Unable to send Quit: {:?}", &err))
     }
 
@@ -187,15 +187,15 @@ mod stop_server {
     use super::{make_socket_name, MockServer};
     use client::rest::RestManagerClient;
     use client::ManagerClient;
-    use server::RequestMessage::Quit;
+    use server::RequestMessage::Stop;
     use spectral::prelude::*;
     use std::sync::{Arc, RwLock};
     use std::thread;
     use std::time::Duration;
 
     #[test]
-    fn test_sends_quit() {
-        let socket_path = make_socket_name("test_sends_quit");
+    fn test_sends_stop() {
+        let socket_path = make_socket_name("test_sends_stop");
         let server_socket_path = socket_path.clone();
         let calls = Arc::new(RwLock::new(vec![]));
         let server_calls = calls.clone();
@@ -212,6 +212,6 @@ mod stop_server {
         assert_that(&handle.join()).is_ok();
 
         let calls = calls.read().unwrap();
-        assert_that(&calls[0]).is_equal_to(&Quit);
+        assert_that(&calls[0]).is_equal_to(&Stop);
     }
 }

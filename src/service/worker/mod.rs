@@ -15,17 +15,17 @@ pub trait Worker {
 
 /// Information about a running service task.
 #[derive(Debug)]
-struct Running(
+struct RunningWorker(
     thread::JoinHandle<Result<()>>,
     Sender<TaskMessage>,
     Receiver<TaskResponse>,
 );
 
-impl Running {
+impl RunningWorker {
     /// Message to wait until the task finishes, then receive the task's `ExitStatus` and return
-    /// it. This consumes the `Running`.
+    /// it. This consumes the `RunningWorker`.
     fn join(self, service_name: &str) -> Result<Output> {
-        let Running(_, tx, rx) = self;
+        let RunningWorker(_, tx, rx) = self;
         tx.send(TaskMessage::Join).map_err(|err| {
             format_err!("Unable to send message to {}: {:?}", &service_name, &err)
         })?;
@@ -46,7 +46,7 @@ impl Running {
 #[derive(Debug)]
 pub struct ServiceWorker {
     service: Service,
-    worker: Option<Running>,
+    worker: Option<RunningWorker>,
 }
 
 impl ServiceWorker {
@@ -81,7 +81,7 @@ impl Worker for ServiceWorker {
                 )
             })?;
 
-        self.worker = Some(Running(join_handle, manager_tx, worker_rx));
+        self.worker = Some(RunningWorker(join_handle, manager_tx, worker_rx));
 
         Ok(())
     }
@@ -106,7 +106,7 @@ impl Worker for ServiceWorker {
     /// This is really a last resort.
     fn kill(&mut self) -> Result<()> {
         let worker = self.worker.take();
-        if let Some(Running(_, ref tx, _)) = worker {
+        if let Some(RunningWorker(_, ref tx, _)) = worker {
             tx.send(TaskMessage::Kill).map_err(|err| {
                 format_err!("Error sending KILL to {}: {:?}", &self.service.name, &err)
             })

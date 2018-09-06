@@ -41,7 +41,7 @@ impl ManagerClient for RestManagerClient {
 
     fn stop_server(&self) -> Result<()> {
         let mut stream = self.connect()?;
-        stream.send(RequestMessage::Quit)
+        stream.send(RequestMessage::Stop)
     }
 }
 

@@ -1,4 +1,6 @@
 extern crate assert_cmd;
+#[macro_use]
+extern crate failure;
 extern crate spectral;
 extern crate straw_boss;
 extern crate sysinfo;
@@ -6,60 +8,31 @@ extern crate sysinfo;
 use assert_cmd::prelude::*;
 use spectral::assert_that;
 use spectral::prelude::*;
-use std::fs;
-use std::path::PathBuf;
-use std::process::Command;
 use std::thread;
-use sysinfo::ProcessExt;
+use std::time::Duration;
 
 mod utils;
 
-use utils::poll_processes;
+use utils::command::StopServer;
+use utils::poll::poll_processes;
 
 #[test]
 fn test_start() {
-    let socket = PathBuf::from("/tmp/straw-boss.test-start.sock");
-    if socket.exists() {
-        fs::remove_file(&socket).unwrap();
-    }
-
-    let _join = thread::spawn(move || {
-        let _command = Command::main_binary()
-            .unwrap()
-            .env(
-                "STRAWBOSS_SOCKET_PATH",
-                String::from(socket.to_string_lossy()),
-            ).arg("start")
-            .arg("--procfile")
-            .arg("./fixtures/Procfile.python")
-            .unwrap();
-    });
-
+    let mut stop_server = StopServer::new("test-start");
+    stop_server.start("./fixtures/Procfile.python").unwrap();
     let process_info = poll_processes("http.server", "3040", 10);
-    process_info.as_ref().map(|p| p.kill(sysinfo::Signal::Kill));
-
     assert_that(&process_info).is_some();
 }
 
 #[test]
 fn test_pipe_commands() {
-    let socket = PathBuf::from("/tmp/straw-boss.test-pipe-commands.sock");
-    if socket.exists() {
-        fs::remove_file(&socket).unwrap();
-    }
+    let mut stop_server = StopServer::new("test-pipe-commands");
+    stop_server.start("./fixtures/Procfile.pipe").unwrap();
+    thread::sleep(Duration::from_secs(2));
+    let output = stop_server.stop().unwrap();
 
-    let command = Command::main_binary()
-        .unwrap()
-        .env(
-            "STRAWBOSS_SOCKET_PATH",
-            String::from(socket.to_string_lossy()),
-        ).arg("start")
-        .arg("--procfile")
-        .arg("./fixtures/Procfile.pipe")
-        .unwrap();
+    let text_output = String::from_utf8(output.stdout.clone()).unwrap();
+    output.assert().success();
 
-    let output = String::from_utf8(command.stdout.clone()).unwrap();
-    command.assert().success();
-
-    assert_that(&output).contains("2");
+    assert_that(&text_output).contains("2");
 }

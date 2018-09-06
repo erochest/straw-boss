@@ -23,7 +23,10 @@ impl ManagerStatus {
             ManagerStatus::NotFound => String::from(
                 "Straw-boss not running. Why don't you try `straw-boss start --daemon`",
             ),
-            ManagerStatus::RunningTasks(_tasks) => String::from("Running tasks"),
+            ManagerStatus::RunningTasks(tasks) => tasks
+                .into_iter()
+                .map(|(k, v)| format!("{}: {}\n", &k, &v))
+                .fold(String::new(), |a, b| a + &b),
         }
     }
 }

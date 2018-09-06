@@ -33,7 +33,7 @@ pub trait ManagerServer {
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub enum RequestMessage {
     GetWorkers,
-    Quit,
+    Stop,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
