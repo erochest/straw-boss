@@ -1,4 +1,5 @@
 use assert_cmd::prelude::*;
+use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -32,7 +33,7 @@ impl StopServer {
         }
     }
 
-    fn pid_file(&self) -> String {
+    pub fn pid_file(&self) -> String {
         format!("/tmp/straw-boss.{}.pid", &self.tag)
     }
 
@@ -69,15 +70,7 @@ impl StopServer {
         match self.server_task {
             ServerTask::Unstarted => Err(format_err!("Task {} hasn't started yet.", &self.tag)),
             ServerTask::Join(ref mut join) => {
-                if self.socket_path.exists() {
-                    let mut client = build_client(&self.socket_path.to_string_lossy())?;
-
-                    client
-                        .arg("stop")
-                        .ok()
-                        .map_err(|err| format_err!("Unable to stop server: {:?}", &err))?;
-                }
-
+                send_stop(&self.socket_path)?;
                 join.take()
                     .ok_or_else(|| format_err!("Unable to get join handle"))
                     .and_then(|j| {
@@ -86,7 +79,10 @@ impl StopServer {
                             .and_then(|r| r)
                     })
             }
-            ServerTask::Output(ref output) => Ok(output.clone()),
+            ServerTask::Output(ref output) => {
+                send_stop(&self.socket_path)?;
+                Ok(output.clone())
+            }
         }
     }
 
@@ -94,6 +90,20 @@ impl StopServer {
     pub fn build_client(&self) -> Result<Command> {
         build_client(&self.socket_path.to_string_lossy())
     }
+}
+
+fn send_stop<P: AsRef<Path> + Debug>(socket_path: P) -> Result<()> {
+    let socket_path = socket_path.as_ref();
+    if socket_path.exists() {
+        let mut client = build_client(&socket_path.to_string_lossy())?;
+
+        client
+            .arg("stop")
+            .ok()
+            .map_err(|err| format_err!("Unable to stop server: {:?}", &err))?;
+    }
+
+    Ok(())
 }
 
 fn build_client(socket_path: &str) -> Result<Command> {

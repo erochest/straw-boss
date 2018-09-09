@@ -1,16 +1,17 @@
 use messaging::{Receiver, Sender};
-use server::{ManagerServer, RequestMessage, ResponseMessage};
+use server::{daemonize, ManagerServer, RequestMessage, ResponseMessage};
 use service::service::Service;
 use service::worker::{ServiceWorker, Worker};
 use std::fs;
 use std::os::unix::net::UnixListener;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use Result;
 
 pub const DOMAIN_SOCKET: &'static str = "/tmp/straw-boss-server.sock";
 
 pub struct RestManagerServer {
     socket_path: PathBuf,
+    pid_file: Option<PathBuf>,
     listener: Option<UnixListener>,
     workers: Vec<ServiceWorker>,
 }
@@ -23,6 +24,7 @@ impl RestManagerServer {
     pub fn at_path(socket_path: PathBuf) -> RestManagerServer {
         RestManagerServer {
             socket_path,
+            pid_file: None,
             listener: None,
             workers: vec![],
         }
@@ -39,6 +41,12 @@ impl RestManagerServer {
 }
 
 impl ManagerServer for RestManagerServer {
+    fn daemonize<P: AsRef<Path>>(&mut self, pid_file: P) -> Result<()> {
+        daemonize(&pid_file)?;
+        self.pid_file = Some(PathBuf::from(pid_file.as_ref()));
+        Ok(())
+    }
+
     fn start_workers(&mut self, workers: Vec<Service>) -> Result<()> {
         self.workers = workers
             .into_iter()
@@ -76,6 +84,11 @@ impl Drop for RestManagerServer {
             if self.socket_path.exists() {
                 // Eating the error b/c we're trying to shutdown.
                 let _ = fs::remove_file(&self.socket_path);
+            }
+        });
+        self.pid_file.take().into_iter().for_each(|pid_file| {
+            if pid_file.exists() {
+                let _ = fs::remove_file(pid_file);
             }
         });
     }

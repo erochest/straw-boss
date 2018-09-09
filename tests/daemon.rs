@@ -7,6 +7,8 @@ extern crate sysinfo;
 
 use spectral::assert_that;
 use spectral::prelude::*;
+use std::thread;
+use std::time::Duration;
 
 mod utils;
 
@@ -24,4 +26,5 @@ fn test_daemon() {
     let output = server.stop().unwrap();
     let status = output.status;
     assert_that(&status.success()).is_true();
+    thread::sleep(Duration::from_secs(1));
 }

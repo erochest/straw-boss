@@ -59,7 +59,7 @@ mod test {
     }
 
     impl ManagerServer for MockServer {
-        fn daemonize<P: AsRef<Path>>(&self, _pid_file: P) -> Result<()> {
+        fn daemonize<P: AsRef<Path>>(&mut self, _pid_file: P) -> Result<()> {
             self.push(ServerCalls::Daemonize)
         }
 
