@@ -5,21 +5,30 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use Result;
 
+pub trait Worker {
+    fn start(&mut self) -> Result<()>;
+    fn thread_id(&self) -> Option<thread::ThreadId>;
+    fn join(&mut self) -> Result<Output>;
+    fn kill(&mut self) -> Result<()>;
+    fn is_running(&self) -> bool;
+}
+
 /// Information about a running service task.
 #[derive(Debug)]
-struct Running(
+struct RunningWorker(
     thread::JoinHandle<Result<()>>,
     Sender<TaskMessage>,
     Receiver<TaskResponse>,
 );
 
-impl Running {
+impl RunningWorker {
     /// Message to wait until the task finishes, then receive the task's `ExitStatus` and return
-    /// it. This consumes the `Running`.
+    /// it. This consumes the `RunningWorker`.
     fn join(self, service_name: &str) -> Result<Output> {
-        let Running(_, tx, rx) = self;
-        tx.send(TaskMessage::Join)
-            .map_err(|err| format_err!("Unable to send message to {}: {:?}", &service_name, &err))?;
+        let RunningWorker(_, tx, rx) = self;
+        tx.send(TaskMessage::Join).map_err(|err| {
+            format_err!("Unable to send message to {}: {:?}", &service_name, &err)
+        })?;
         let response = rx.recv().map_err(|err| {
             format_err!(
                 "Unable to receive message from {}: {:?}",
@@ -37,7 +46,7 @@ impl Running {
 #[derive(Debug)]
 pub struct ServiceWorker {
     service: Service,
-    worker: Option<Running>,
+    worker: Option<RunningWorker>,
 }
 
 impl ServiceWorker {
@@ -49,8 +58,14 @@ impl ServiceWorker {
         }
     }
 
+    pub fn service(&self) -> &Service {
+        &self.service
+    }
+}
+
+impl Worker for ServiceWorker {
     /// Start the service executing on a separate thread.
-    pub fn start(&mut self) -> Result<()> {
+    fn start(&mut self) -> Result<()> {
         let service_run = self.service.clone();
         let service_name = self.service.name.clone();
         let (manager_tx, manager_rx) = channel();
@@ -66,13 +81,13 @@ impl ServiceWorker {
                 )
             })?;
 
-        self.worker = Some(Running(join_handle, manager_tx, worker_rx));
+        self.worker = Some(RunningWorker(join_handle, manager_tx, worker_rx));
 
         Ok(())
     }
 
     /// Return the OS thread ID that the task is executing in.
-    pub fn thread_id(&self) -> Option<thread::ThreadId> {
+    fn thread_id(&self) -> Option<thread::ThreadId> {
         match self.worker {
             Some(ref worker) => Some(worker.0.thread().id()),
             None => None,
@@ -80,7 +95,7 @@ impl ServiceWorker {
     }
 
     /// Wait for the task to complete and return its `ExitStatus`.
-    pub fn join(&mut self) -> Result<Output> {
+    fn join(&mut self) -> Result<Output> {
         let worker = self.worker.take();
         worker
             .ok_or_else(|| format_err!("Service {} not running.", &self.service.name))
@@ -89,9 +104,9 @@ impl ServiceWorker {
 
     /// Kill the task. Doesn't wait for it to actually finish, but you lose any relationship to it.
     /// This is really a last resort.
-    pub fn kill(&mut self) -> Result<()> {
+    fn kill(&mut self) -> Result<()> {
         let worker = self.worker.take();
-        if let Some(Running(_, ref tx, _)) = worker {
+        if let Some(RunningWorker(_, ref tx, _)) = worker {
             tx.send(TaskMessage::Kill).map_err(|err| {
                 format_err!("Error sending KILL to {}: {:?}", &self.service.name, &err)
             })
@@ -101,7 +116,7 @@ impl ServiceWorker {
     }
 
     /// Is this task running?
-    pub fn is_running(&self) -> bool {
+    fn is_running(&self) -> bool {
         self.worker.is_some()
     }
 }

@@ -1,7 +1,7 @@
 use daemonize::Daemonize;
 use serde_yaml;
 use service::service;
-use service::worker::ServiceWorker;
+use service::worker::{ServiceWorker, Worker};
 use std::env;
 use std::fs::File;
 use procfile::Procfile;

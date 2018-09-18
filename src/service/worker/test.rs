@@ -1,5 +1,5 @@
 use service::service::Service;
-use service::worker::ServiceWorker;
+use service::worker::{ServiceWorker, Worker};
 
 fn setup(name: &str, command: &str) -> ServiceWorker {
     let line = format!("{}: {}", &name, &command);
@@ -13,6 +13,7 @@ fn setup(name: &str, command: &str) -> ServiceWorker {
 mod start {
     use super::setup;
     use reqwest;
+    use service::worker::Worker;
     use spectral::assert_that;
     use spectral::prelude::*;
     use std::thread;
@@ -53,6 +54,7 @@ mod start {
 
 mod join {
     use super::setup;
+    use service::worker::Worker;
     use spectral::assert_that;
     use spectral::prelude::*;
     use std::time::{Duration, Instant};
@@ -84,6 +86,7 @@ mod join {
 mod kill {
     use super::setup;
     use reqwest;
+    use service::worker::Worker;
     use spectral::assert_that;
     use spectral::prelude::*;
     use std::thread;
@@ -103,6 +106,7 @@ mod kill {
 
 mod thread_id {
     use super::setup;
+    use service::worker::Worker;
     use spectral::assert_that;
     use std::thread;
 
