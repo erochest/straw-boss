@@ -23,6 +23,7 @@ use std::io;
 pub mod actions;
 pub mod procfile;
 pub mod service;
+pub mod yamlize;
 
 /// A convenience type alias for a specialization of `Result` that uses `failure::Error` for
 /// exceptions.

@@ -7,6 +7,7 @@ use std::fs::File;
 use procfile::Procfile;
 use std::io::Write;
 use std::path::PathBuf;
+use yamlize::yamlize;
 use Result;
 
 /// An action that the straw boss can do.
@@ -70,16 +71,4 @@ pub fn start<W: Write>(procfile: &Procfile, writer: &mut W, is_daemon: bool) -> 
     }
 
     result.unwrap_or(Ok(()))
-}
-
-/// Read the processes in the `Procfile` and write them back out as YAML.
-pub fn yamlize<W: Write>(procfile: &Procfile, writer: &mut W) -> Result<()> {
-    let services = procfile.read_services()?;
-    let index = service::index_services(&services);
-    let yaml = serde_yaml::to_string(&index)
-        .map_err(|err| format_err!("Cannot convert index to YAML: {}", &err))?;
-
-    writer
-        .write_fmt(format_args!("{}", yaml))
-        .map_err(|err| format_err!("Cannot write YAML: {:?}", &err))
 }
