@@ -1,33 +1,30 @@
 extern crate assert_cmd;
+#[macro_use]
+extern crate failure;
 extern crate spectral;
 extern crate straw_boss;
 extern crate sysinfo;
 
-use assert_cmd::prelude::*;
 use spectral::assert_that;
 use spectral::prelude::*;
-use std::process::Command;
-use sysinfo::ProcessExt;
+use std::thread;
+use std::time::Duration;
 
 mod utils;
 
-use utils::poll_processes;
+use utils::command::StopServer;
+use utils::poll::poll_processes;
 
 #[test]
 fn test_daemon() {
-    // The test here is really that we're not spawning this into another thread.
-    let status = Command::main_binary()
-        .unwrap()
-        .arg("--procfile")
-        .arg("./fixtures/Procfile.python")
-        .arg("start")
-        .arg("--daemon")
-        .status()
-        .unwrap();
+    let mut server = StopServer::new("test-daemon");
+    server.daemonize("./fixtures/Procfile.python").unwrap();
 
     let process_info = poll_processes("http.server", "3040", 10);
-    process_info.as_ref().map(|p| p.kill(sysinfo::Signal::Kill));
+    // assert_that(&process_info).is_some();
 
-    assert_that(&status.success()).is_true();
-    assert_that(&process_info).is_some();
+    let output = server.stop().unwrap();
+    // let status = output.status;
+    // assert_that(&status.success()).is_true();
+    thread::sleep(Duration::from_secs(1));
 }
