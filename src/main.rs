@@ -7,7 +7,8 @@ extern crate failure;
 use clap::{Arg, SubCommand};
 use std::env;
 
-use straw_boss::actions::{Action, Procfile};
+use straw_boss::actions::Action;
+use straw_boss::procfile::Procfile;
 use straw_boss::Result;
 
 fn main() -> Result<()> {

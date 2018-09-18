@@ -21,6 +21,7 @@ extern crate spectral;
 use std::io;
 
 pub mod actions;
+pub mod procfile;
 pub mod service;
 
 /// A convenience type alias for a specialization of `Result` that uses `failure::Error` for
