@@ -28,6 +28,7 @@ extern crate spectral;
 use std::io;
 
 pub mod actions;
+pub mod client;
 pub mod messaging;
 pub mod procfile;
 pub mod server;

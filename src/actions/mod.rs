@@ -1,3 +1,5 @@
+use client::local::RestManagerClient;
+use client::ManagerClient;
 use daemonize::Daemonize;
 use serde_yaml;
 use service::service;

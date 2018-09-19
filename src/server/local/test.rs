@@ -1,6 +1,6 @@
 use chrono::prelude::*;
-// use client::local::RestManagerClient;
-// use client::ManagerClient;
+use client::local::RestManagerClient;
+use client::ManagerClient;
 use reqwest;
 use server::local::RestManagerServer;
 use server::ManagerServer;
@@ -69,95 +69,95 @@ fn test_starts_workers() {
     assert_that(&tmpfile).exists();
 }
 
-// #[test]
-// fn test_get_workers_response_with_workers() {
-//     let socket_path = setup("test_get_workers_response_with_workers");
-//     let server_socket = socket_path.clone();
+#[test]
+fn test_get_workers_response_with_workers() {
+    let socket_path = setup("test_get_workers_response_with_workers");
+    let server_socket = socket_path.clone();
 
-//     let handle = thread::spawn(|| {
-//         let mut server = RestManagerServer::at_path(server_socket);
-//         server
-//             .start_workers(vec![Service::new("python", "python3 -m http.server 3040")])
-//             .unwrap();
-//         server.start_server().unwrap();
-//     });
+    let handle = thread::spawn(|| {
+        let mut server = RestManagerServer::at_path(server_socket);
+        server
+            .start_workers(vec![Service::new("python", "python3 -m http.server 3040")])
+            .unwrap();
+        server.start_server().unwrap();
+    });
 
-//     thread::sleep(Duration::from_secs(1));
-//     assert_that(&socket_path).exists();
+    thread::sleep(Duration::from_secs(1));
+    assert_that(&socket_path).exists();
 
-//     let client = RestManagerClient::at_path(socket_path.clone());
-//     let workers = client.get_workers();
-//     assert_that(&workers)
-//         .is_ok()
-//         .is_equal_to(&vec![Service::new("python", "python3 -m http.server 3040")]);
+    let client = RestManagerClient::at_path(socket_path.clone());
+    let workers = client.get_workers();
+    assert_that(&workers)
+        .is_ok()
+        .is_equal_to(&vec![Service::new("python", "python3 -m http.server 3040")]);
 
-//     assert_that(&client.stop_server()).is_ok();
-//     assert_that(&handle.join()).is_ok();
-//     assert_that(&socket_path).does_not_exist();
-// }
+    assert_that(&client.stop_server()).is_ok();
+    assert_that(&handle.join()).is_ok();
+    assert_that(&socket_path).does_not_exist();
+}
 
-// #[test]
-// fn test_exits_when_quit() {
-//     let socket_path = setup("test_exits_when_quit");
-//     let server_socket = socket_path.clone();
+#[test]
+fn test_exits_when_quit() {
+    let socket_path = setup("test_exits_when_quit");
+    let server_socket = socket_path.clone();
 
-//     let handle = thread::spawn(move || {
-//         let mut server = RestManagerServer::at_path(server_socket);
-//         server
-//             .start_workers(vec![Service::new("web", "python3 -m http.server 9874")])
-//             .unwrap();
-//         server.start_server().unwrap();
-//     });
+    let handle = thread::spawn(move || {
+        let mut server = RestManagerServer::at_path(server_socket);
+        server
+            .start_workers(vec![Service::new("web", "python3 -m http.server 9874")])
+            .unwrap();
+        server.start_server().unwrap();
+    });
 
-//     thread::sleep(Duration::from_secs(1));
-//     assert_that(&socket_path).exists();
+    thread::sleep(Duration::from_secs(1));
+    assert_that(&socket_path).exists();
 
-//     let response = reqwest::get("http://localhost:9874/").unwrap();
-//     assert_that(&response.status()).is_equal_to(&reqwest::StatusCode::Ok);
+    let response = reqwest::get("http://localhost:9874/").unwrap();
+    assert_that(&response.status()).is_equal_to(&reqwest::StatusCode::Ok);
 
-//     let client = RestManagerClient::at_path(socket_path.clone());
-//     assert_that(&client.stop_server()).is_ok();
-//     assert_that(&handle.join()).is_ok();
-// }
+    let client = RestManagerClient::at_path(socket_path.clone());
+    assert_that(&client.stop_server()).is_ok();
+    assert_that(&handle.join()).is_ok();
+}
 
-// #[test]
-// fn test_deletes_socket_when_quit() {
-//     let socket_path = setup("test_deletes_socket_when_quit");
-//     let server_socket = socket_path.clone();
+#[test]
+fn test_deletes_socket_when_quit() {
+    let socket_path = setup("test_deletes_socket_when_quit");
+    let server_socket = socket_path.clone();
 
-//     let handle = thread::spawn(move || {
-//         let mut server = RestManagerServer::at_path(server_socket);
-//         server.start_server().unwrap();
-//     });
+    let handle = thread::spawn(move || {
+        let mut server = RestManagerServer::at_path(server_socket);
+        server.start_server().unwrap();
+    });
 
-//     thread::sleep(Duration::from_secs(1));
-//     assert_that(&socket_path).exists();
+    thread::sleep(Duration::from_secs(1));
+    assert_that(&socket_path).exists();
 
-//     let client = RestManagerClient::at_path(socket_path.clone());
-//     client.stop_server().unwrap();
-//     handle.join().unwrap();
-//     assert_that(&socket_path).does_not_exist();
-// }
+    let client = RestManagerClient::at_path(socket_path.clone());
+    client.stop_server().unwrap();
+    handle.join().unwrap();
+    assert_that(&socket_path).does_not_exist();
+}
 
-// #[test]
-// fn test_stops_tasks_when_quit() {
-//     let socket_path = setup("test_stops_tasks_when_quit");
-//     let server_socket = socket_path.clone();
+#[test]
+fn test_stops_tasks_when_quit() {
+    let socket_path = setup("test_stops_tasks_when_quit");
+    let server_socket = socket_path.clone();
 
-//     let handle = thread::spawn(move || {
-//         let mut server = RestManagerServer::at_path(server_socket);
-//         server
-//             .start_workers(vec![Service::new("web", "python3 -m http.server 9875")])
-//             .unwrap();
-//         server.start_server().unwrap();
-//     });
+    let handle = thread::spawn(move || {
+        let mut server = RestManagerServer::at_path(server_socket);
+        server
+            .start_workers(vec![Service::new("web", "python3 -m http.server 9875")])
+            .unwrap();
+        server.start_server().unwrap();
+    });
 
-//     thread::sleep(Duration::from_secs(1));
-//     assert_that(&socket_path).exists();
+    thread::sleep(Duration::from_secs(1));
+    assert_that(&socket_path).exists();
 
-//     let client = RestManagerClient::at_path(socket_path.clone());
-//     client.stop_server().unwrap();
-//     handle.join().unwrap();
+    let client = RestManagerClient::at_path(socket_path.clone());
+    client.stop_server().unwrap();
+    handle.join().unwrap();
 
-//     assert_that(&reqwest::get("http://localhost:9875/")).is_err();
-// }
+    assert_that(&reqwest::get("http://localhost:9875/")).is_err();
+}
