@@ -38,7 +38,7 @@ fn parse_args() -> Result<Action> {
                     .arg(Arg::with_name("daemon").short("d").long("daemon").help(
                         "Run the straw boss task manager in the background as a server/daemon.",
                     )),
-            )
+            ).subcommand(SubCommand::with_name("status").about("This queries daemonized tasks."))
             .subcommand(SubCommand::with_name("stop").about("This stops a running server."))
             .subcommand(
                 SubCommand::with_name("yamlize")
@@ -60,6 +60,9 @@ fn parse_args() -> Result<Action> {
             ServerRunMode::Foreground
         };
         Ok(Action::Start(procfile, run_mode, socket_path))
+    } else if let Some(_sub_matches) = matches.subcommand_matches("status") {
+        let socket_path = get_socket_path();
+        Ok(Action::Status(socket_path))
     } else if let Some(_sub_matches) = matches.subcommand_matches("stop") {
         let socket_path = get_socket_path();
         Ok(Action::Stop(socket_path))

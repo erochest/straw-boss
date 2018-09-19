@@ -1,11 +1,6 @@
 use client::local::RestManagerClient;
+use client::status::status;
 use client::ManagerClient;
-use daemonize::Daemonize;
-use serde_yaml;
-use service::service;
-use service::worker::{ServiceWorker, Worker};
-use std::env;
-use std::fs::File;
 use procfile::Procfile;
 use server::local::RestManagerServer;
 use server::start::start;
@@ -19,6 +14,7 @@ use Result;
 #[derive(Debug)]
 pub enum Action {
     Start(Procfile, ServerRunMode, PathBuf),
+    Status(PathBuf),
     Stop(PathBuf),
     Yamlize(Procfile),
 }
@@ -32,6 +28,14 @@ impl Action {
                 let mut server = RestManagerServer::at_path(socket_domain);
                 let services = procfile.read_services()?;
                 start(&mut server, run_mode, services)
+            }
+            Action::Status(socket_domain) => {
+                let client = RestManagerClient::at_path(socket_domain);
+                status(&client).and_then(|ms| {
+                    writer
+                        .write_all(ms.get_message().as_bytes())
+                        .map_err(|err| format_err!("Unable to write output: {:?}", &err))
+                })
             }
             Action::Stop(socket_domain) => {
                 let client = RestManagerClient::at_path(socket_domain);
