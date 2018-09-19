@@ -19,6 +19,7 @@ use Result;
 #[derive(Debug)]
 pub enum Action {
     Start(Procfile, ServerRunMode, PathBuf),
+    Stop(PathBuf),
     Yamlize(Procfile),
 }
 
@@ -31,6 +32,10 @@ impl Action {
                 let mut server = RestManagerServer::at_path(socket_domain);
                 let services = procfile.read_services()?;
                 start(&mut server, run_mode, services)
+            }
+            Action::Stop(socket_domain) => {
+                let client = RestManagerClient::at_path(socket_domain);
+                client.stop_server()
             }
             Action::Yamlize(ref procfile) => yamlize(procfile, writer),
         }

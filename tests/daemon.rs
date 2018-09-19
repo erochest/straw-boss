@@ -21,10 +21,10 @@ fn test_daemon() {
     server.daemonize("./fixtures/Procfile.python").unwrap();
 
     let process_info = poll_processes("http.server", "3040", 10);
-    // assert_that(&process_info).is_some();
+    assert_that(&process_info).is_some();
 
-    // let output = server.stop().unwrap();
-    // let status = output.status;
-    // assert_that(&status.success()).is_true();
+    let output = server.stop().unwrap();
+    let status = output.status;
+    assert_that(&status.success()).is_true();
     thread::sleep(Duration::from_secs(1));
 }
