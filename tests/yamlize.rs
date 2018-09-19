@@ -11,9 +11,9 @@ use std::process::Command;
 fn test_writes_services_to_output() {
     let command = Command::main_binary()
         .unwrap()
+        .arg("yamlize")
         .arg("--procfile")
         .arg("./fixtures/Procfile")
-        .arg("yamlize")
         .unwrap();
 
     let output = String::from_utf8(command.stdout.clone()).unwrap();

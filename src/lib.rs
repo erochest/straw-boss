@@ -1,6 +1,8 @@
 #![feature(try_from)]
 #![feature(plugin)]
+#![feature(option_replace)]
 
+extern crate chrono;
 extern crate clap;
 extern crate daemonize;
 extern crate duct;
@@ -13,6 +15,11 @@ extern crate reqwest;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+#[cfg(test)]
+extern crate assert_fs;
+#[cfg(test)]
+extern crate predicates;
+extern crate rmp_serde;
 extern crate serde_yaml;
 extern crate shellwords;
 #[cfg(test)]
@@ -21,7 +28,9 @@ extern crate spectral;
 use std::io;
 
 pub mod actions;
+pub mod messaging;
 pub mod procfile;
+pub mod server;
 pub mod service;
 pub mod yamlize;
 
