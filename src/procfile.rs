@@ -1,4 +1,4 @@
-use service::service::Service;
+use service::Service;
 use std::fs::File;
 use std::path::PathBuf;
 use Result;
@@ -32,7 +32,7 @@ impl Procfile {
 mod test {
     mod read_services {
         use procfile::Procfile;
-        use service::service::Service;
+        use service::Service;
         use spectral::assert_that;
         use spectral::prelude::*;
 

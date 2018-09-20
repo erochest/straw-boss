@@ -1,5 +1,5 @@
-use service::service::{run, Service};
-use service::{TaskMessage, TaskResponse};
+use service::messages::{TaskMessage, TaskResponse};
+use service::{run, Service};
 use std::process::Output;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;

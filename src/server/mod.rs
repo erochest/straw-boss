@@ -1,5 +1,5 @@
 use daemonize::Daemonize;
-use service::service::Service;
+use service::Service;
 use std::env;
 use std::path::{Path, PathBuf};
 use Result;

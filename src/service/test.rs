@@ -1,5 +1,5 @@
 mod from_str {
-    use service::service::Service;
+    use service::Service;
     use spectral::assert_that;
     use spectral::prelude::*;
     use std::str::FromStr;
@@ -56,8 +56,8 @@ mod from_str {
 }
 
 mod index_services {
-    use service::service::index_services;
-    use service::service::Service;
+    use service::index_services;
+    use service::Service;
     use spectral::assert_that;
     use spectral::prelude::*;
 
@@ -106,7 +106,7 @@ mod index_services {
 }
 
 mod read_procfile {
-    use service::service::Service;
+    use service::Service;
     use spectral::assert_that;
     use spectral::prelude::*;
 

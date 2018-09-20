@@ -22,7 +22,7 @@ pub fn status<C: ManagerClient>(client: &C) -> Result<ManagerStatus> {
 mod test {
     use super::status;
     use client::ManagerClient;
-    use service::service::Service;
+    use service::Service;
     use spectral::prelude::*;
     use std::collections::HashMap;
     use tasks::TaskSpec;

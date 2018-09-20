@@ -1,15 +1,16 @@
 use messaging::{Receiver, Sender};
 use server::{daemonize, ManagerServer, RequestMessage, ResponseMessage};
-use service::service::Service;
 use service::worker::{ServiceWorker, Worker};
+use service::Service;
 use std::collections::HashSet;
 use std::fs;
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use Result;
 
-pub const DOMAIN_SOCKET: &'static str = "/tmp/straw-boss-server.sock";
+pub const DOMAIN_SOCKET: &str = "/tmp/straw-boss-server.sock";
 
+#[derive(Default)]
 pub struct RestManagerServer {
     socket_path: PathBuf,
     pid_file: Option<PathBuf>,
@@ -69,7 +70,7 @@ impl ManagerServer for RestManagerServer {
                 RequestMessage::StopServer => break,
                 RequestMessage::StopTasks(tasks) => {
                     let tasks = tasks.iter().collect::<HashSet<_>>();
-                    for ref mut w in self.workers.iter_mut() {
+                    for w in &mut self.workers.iter_mut() {
                         if tasks.contains(&w.service().name) {
                             w.kill().map_err(|err| {
                                 format_err!("Unable to kill {:?}: {:?}", &w.service().name, &err)

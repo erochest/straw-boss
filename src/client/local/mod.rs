@@ -2,12 +2,13 @@ use client::ManagerClient;
 use messaging::{connect, Receiver, Sender};
 use server::local::DOMAIN_SOCKET;
 use server::{RequestMessage, ResponseMessage};
-use service::service::Service;
+use service::Service;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use tasks::TaskSpec;
 use Result;
 
+#[derive(Default)]
 pub struct RestManagerClient {
     socket_path: PathBuf,
 }

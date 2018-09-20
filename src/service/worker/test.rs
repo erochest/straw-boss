@@ -1,5 +1,5 @@
-use service::service::Service;
 use service::worker::{ServiceWorker, Worker};
+use service::Service;
 
 fn setup(name: &str, command: &str) -> ServiceWorker {
     let line = format!("{}: {}", &name, &command);

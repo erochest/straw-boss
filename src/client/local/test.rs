@@ -2,7 +2,7 @@ use messaging::{Receiver, Sender};
 use server::RequestMessage;
 use server::RequestMessage::*;
 use server::ResponseMessage::*;
-use service::service::Service;
+use service::Service;
 use std::fs;
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
@@ -107,7 +107,7 @@ mod get_workers {
     use rmp_serde::Serializer;
     use serde::Serialize;
     use server::RequestMessage::*;
-    use service::service::Service;
+    use service::Service;
     use spectral::prelude::*;
     use std::os::unix::net::UnixStream;
     use std::path::Path;

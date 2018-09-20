@@ -1,6 +1,6 @@
 use procfile::Procfile;
 use serde_yaml;
-use service::service;
+use service;
 use std::io::Write;
 use Result;
 

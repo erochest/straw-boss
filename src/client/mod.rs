@@ -1,4 +1,4 @@
-use service::service::Service;
+use service::Service;
 use std::collections::HashMap;
 use tasks::TaskSpec;
 use Result;

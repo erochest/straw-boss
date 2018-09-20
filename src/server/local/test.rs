@@ -4,7 +4,7 @@ use client::ManagerClient;
 use reqwest;
 use server::local::RestManagerServer;
 use server::ManagerServer;
-use service::service::Service;
+use service::Service;
 use spectral::prelude::*;
 use std::env;
 use std::fs;

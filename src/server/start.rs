@@ -1,5 +1,5 @@
 use server::{ManagerServer, ServerRunMode};
-use service::service::Service;
+use service::Service;
 use Result;
 
 /// Start all the processes described in the `Procfile`.
@@ -24,7 +24,7 @@ mod test {
     use super::start;
     use server::ManagerServer;
     use server::ServerRunMode;
-    use service::service::Service;
+    use service::Service;
     use spectral::prelude::*;
     use std::path::Path;
     use std::sync::RwLock;
