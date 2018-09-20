@@ -2,6 +2,7 @@ use messaging::{Receiver, Sender};
 use server::{daemonize, ManagerServer, RequestMessage, ResponseMessage};
 use service::service::Service;
 use service::worker::{ServiceWorker, Worker};
+use std::collections::HashSet;
 use std::fs;
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
@@ -12,7 +13,6 @@ pub const DOMAIN_SOCKET: &'static str = "/tmp/straw-boss-server.sock";
 pub struct RestManagerServer {
     socket_path: PathBuf,
     pid_file: Option<PathBuf>,
-    listener: Option<UnixListener>,
     workers: Vec<ServiceWorker>,
 }
 
@@ -25,18 +25,14 @@ impl RestManagerServer {
         RestManagerServer {
             socket_path,
             pid_file: None,
-            listener: None,
             workers: vec![],
         }
     }
 
-    fn initialize(&mut self) -> Result<()> {
-        let listener = UnixListener::bind(&self.socket_path).map_err(|err| {
+    fn create_listener(&mut self) -> Result<UnixListener> {
+        UnixListener::bind(&self.socket_path).map_err(|err| {
             format_err!("Unable to open socket: {:?}: {:?}", &self.socket_path, &err)
-        })?;
-        self.listener = Some(listener);
-
-        Ok(())
+        })
     }
 }
 
@@ -57,35 +53,43 @@ impl ManagerServer for RestManagerServer {
     }
 
     fn start_server(&mut self) -> Result<()> {
-        self.initialize()?;
-        self.listener.iter().try_for_each(|listener| {
-            for stream in listener.incoming() {
-                let mut stream = stream
-                    .map_err(|err| format_err!("Unable to read from listener: {:?}", &err))?;
-                let request: RequestMessage = stream.recv()?;
-                match request {
-                    RequestMessage::GetWorkers => {
-                        let response = ResponseMessage::Workers(
-                            self.workers.iter().map(|sw| sw.service().clone()).collect(),
-                        );
-                        stream.send(response)?;
+        let listener = self.create_listener()?;
+
+        for stream in listener.incoming() {
+            let mut stream =
+                stream.map_err(|err| format_err!("Unable to read from listener: {:?}", &err))?;
+            let request: RequestMessage = stream.recv()?;
+            match request {
+                RequestMessage::GetWorkers => {
+                    let response = ResponseMessage::Workers(
+                        self.workers.iter().map(|sw| sw.service().clone()).collect(),
+                    );
+                    stream.send(response)?;
+                }
+                RequestMessage::StopServer => break,
+                RequestMessage::StopTasks(tasks) => {
+                    let tasks = tasks.iter().collect::<HashSet<_>>();
+                    for ref mut w in self.workers.iter_mut() {
+                        if tasks.contains(&w.service().name) {
+                            w.kill().map_err(|err| {
+                                format_err!("Unable to kill {:?}: {:?}", &w.service().name, &err)
+                            })?;
+                        }
                     }
-                    RequestMessage::Stop => break,
                 }
             }
-            Ok(())
-        })
+        }
+
+        Ok(())
     }
 }
 
 impl Drop for RestManagerServer {
     fn drop(&mut self) {
-        self.listener.take().into_iter().for_each(|_| {
-            if self.socket_path.exists() {
-                // Eating the error b/c we're trying to shutdown.
-                let _ = fs::remove_file(&self.socket_path);
-            }
-        });
+        // Eating the errors b/c we're trying to shutdown.
+        if self.socket_path.exists() {
+            let _ = fs::remove_file(&self.socket_path);
+        }
         self.pid_file.take().into_iter().for_each(|pid_file| {
             if pid_file.exists() {
                 let _ = fs::remove_file(pid_file);

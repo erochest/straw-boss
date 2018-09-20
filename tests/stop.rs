@@ -5,6 +5,7 @@ extern crate spectral;
 extern crate straw_boss;
 extern crate sysinfo;
 
+use assert_cmd::prelude::*;
 use spectral::prelude::*;
 use std::fs;
 use std::io::Read;
@@ -73,4 +74,33 @@ fn test_stop_from_daemon() {
     assert_that(&process_info).is_none();
 
     assert_that(&pid_file).does_not_exist();
+}
+
+#[test]
+fn test_stop_single_task() {
+    let mut server = StopServer::new("test-stop-single-task");
+    server.start("./fixtures/Procfile.two-http").unwrap();
+
+    let process_info = poll::poll_processes("http.server", "3041", 10);
+    assert_that(&process_info).is_some();
+    let process_info = poll::poll_processes("http.server", "3042", 10);
+    assert_that(&process_info).is_some();
+
+    let _client = server
+        .build_client()
+        .unwrap()
+        .arg("stop")
+        .arg("--task")
+        .arg("web1")
+        .ok()
+        .map_err(|_| format_err!("Unable to stop task: web1"))
+        .unwrap();
+
+    let process_info = poll::poll_processes("http.server", "3041", 10);
+    assert_that(&process_info).is_none();
+    let process_info = poll::poll_processes("http.server", "3042", 10);
+    assert_that(&process_info).is_some();
+
+    let _ = server.stop().unwrap();
+    thread::sleep(Duration::from_secs(1));
 }

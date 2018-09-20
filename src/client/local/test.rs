@@ -57,9 +57,9 @@ impl MockServer {
                     let response = Workers(self.workers.clone());
                     stream.send(response).unwrap();
                 }
-                Stop => {
+                stop_message => {
                     let mut calls = self.calls.write().unwrap();
-                    calls.push(Stop);
+                    calls.push(stop_message);
                     return;
                 }
             }
@@ -121,7 +121,8 @@ mod get_workers {
         let mut stream = UnixStream::connect(socket_path)
             .map_err(|err| format_err!("Unable to connect to {:?}: {:?}", socket_path, &err))?;
         let mut ser = Serializer::new(&mut stream);
-        Stop.serialize(&mut ser)
+        StopServer
+            .serialize(&mut ser)
             .map_err(|err| format_err!("Unable to send Quit: {:?}", &err))
     }
 
@@ -183,19 +184,20 @@ mod get_workers {
     }
 }
 
-mod stop_server {
+mod stop {
     use super::{make_socket_name, MockServer};
     use client::local::RestManagerClient;
     use client::ManagerClient;
-    use server::RequestMessage::Stop;
+    use server::RequestMessage::*;
     use spectral::prelude::*;
     use std::sync::{Arc, RwLock};
     use std::thread;
     use std::time::Duration;
+    use tasks::TaskSpec;
 
     #[test]
-    fn test_sends_stop() {
-        let socket_path = make_socket_name("test_sends_stop");
+    fn test_sends_stop_server() {
+        let socket_path = make_socket_name("test_sends_stop_server");
         let server_socket_path = socket_path.clone();
         let calls = Arc::new(RwLock::new(vec![]));
         let server_calls = calls.clone();
@@ -208,10 +210,36 @@ mod stop_server {
         });
 
         thread::sleep(Duration::from_secs(1));
-        assert_that(&client.stop_server()).is_ok();
+        assert_that(&client.stop(TaskSpec::All)).is_ok();
         assert_that(&handle.join()).is_ok();
 
         let calls = calls.read().unwrap();
-        assert_that(&calls[0]).is_equal_to(&Stop);
+        assert_that(&calls[0]).is_equal_to(&StopServer);
+    }
+
+    #[test]
+    fn test_sends_stop_task() {
+        let socket_path = make_socket_name("test_sends_stop_task");
+        let server_socket_path = socket_path.clone();
+        let calls = Arc::new(RwLock::new(vec![]));
+        let server_calls = calls.clone();
+        let client = RestManagerClient::at_path(socket_path.clone());
+        let workers = vec![];
+
+        let handle = thread::spawn(move || {
+            let mut server = MockServer::new(server_socket_path, workers, server_calls);
+            server.run();
+        });
+
+        thread::sleep(Duration::from_secs(1));
+        assert_that(&client.stop(TaskSpec::List(vec![
+            String::from("web1"),
+            String::from("web2"),
+        ]))).is_ok();
+        assert_that(&handle.join()).is_ok();
+
+        let calls = calls.read().unwrap();
+        assert_that(&calls[0])
+            .is_equal_to(&StopTasks(vec![String::from("web1"), String::from("web2")]));
     }
 }

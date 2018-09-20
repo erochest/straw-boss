@@ -5,7 +5,6 @@ extern crate spectral;
 extern crate straw_boss;
 extern crate sysinfo;
 
-use assert_cmd::prelude::*;
 use spectral::assert_that;
 use spectral::prelude::*;
 use std::thread;

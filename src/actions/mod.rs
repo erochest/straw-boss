@@ -7,6 +7,7 @@ use server::start::start;
 use server::ServerRunMode;
 use std::io::Write;
 use std::path::PathBuf;
+use tasks::TaskSpec;
 use yamlize::yamlize;
 use Result;
 
@@ -15,7 +16,7 @@ use Result;
 pub enum Action {
     Start(Procfile, ServerRunMode, PathBuf),
     Status(PathBuf),
-    Stop(PathBuf),
+    Stop(PathBuf, TaskSpec),
     Yamlize(Procfile),
 }
 
@@ -37,9 +38,9 @@ impl Action {
                         .map_err(|err| format_err!("Unable to write output: {:?}", &err))
                 })
             }
-            Action::Stop(socket_domain) => {
+            Action::Stop(socket_domain, tasks) => {
                 let client = RestManagerClient::at_path(socket_domain);
-                client.stop_server()
+                client.stop(tasks)
             }
             Action::Yamlize(ref procfile) => yamlize(procfile, writer),
         }

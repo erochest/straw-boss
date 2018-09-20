@@ -12,6 +12,7 @@ use straw_boss::actions::Action;
 use straw_boss::procfile::Procfile;
 use straw_boss::server::local::DOMAIN_SOCKET;
 use straw_boss::server::ServerRunMode;
+use straw_boss::tasks::TaskSpec;
 use straw_boss::Result;
 
 const SOCKET_PATH_VAR: &'static str = "STRAWBOSS_SOCKET_PATH";
@@ -39,8 +40,19 @@ fn parse_args() -> Result<Action> {
                         "Run the straw boss task manager in the background as a server/daemon.",
                     )),
             ).subcommand(SubCommand::with_name("status").about("This queries daemonized tasks."))
-            .subcommand(SubCommand::with_name("stop").about("This stops a running server."))
             .subcommand(
+                SubCommand::with_name("stop")
+                    .about("This stops a running server.")
+                    .arg(
+                        Arg::with_name("task")
+                            .short("t")
+                            .long("task")
+                            .help("One or more specific tasks to stop.")
+                            .required(false)
+                            .takes_value(true)
+                            .multiple(true),
+                    ),
+            ).subcommand(
                 SubCommand::with_name("yamlize")
                     .about(
                         "This reads the process information from the Procfile and prints it as \
@@ -63,9 +75,10 @@ fn parse_args() -> Result<Action> {
     } else if let Some(_sub_matches) = matches.subcommand_matches("status") {
         let socket_path = get_socket_path();
         Ok(Action::Status(socket_path))
-    } else if let Some(_sub_matches) = matches.subcommand_matches("stop") {
+    } else if let Some(sub_matches) = matches.subcommand_matches("stop") {
         let socket_path = get_socket_path();
-        Ok(Action::Stop(socket_path))
+        let tasks = get_tasks(sub_matches);
+        Ok(Action::Stop(socket_path, tasks))
     } else if let Some(sub_matches) = matches.subcommand_matches("yamlize") {
         let procfile = get_procfile(&sub_matches)?;
         Ok(Action::Yamlize(procfile))
@@ -87,4 +100,11 @@ fn get_procfile(matches: &ArgMatches) -> Result<Procfile> {
 
 fn get_socket_path() -> PathBuf {
     PathBuf::from(env::var(SOCKET_PATH_VAR).unwrap_or_else(|_| String::from(DOMAIN_SOCKET)))
+}
+
+fn get_tasks(matches: &ArgMatches) -> TaskSpec {
+    matches
+        .values_of("task")
+        .map(|values| TaskSpec::List(values.map(String::from).collect()))
+        .unwrap_or(TaskSpec::All)
 }

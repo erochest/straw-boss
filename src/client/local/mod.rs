@@ -5,6 +5,7 @@ use server::{RequestMessage, ResponseMessage};
 use service::service::Service;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
+use tasks::TaskSpec;
 use Result;
 
 pub struct RestManagerClient {
@@ -39,9 +40,13 @@ impl ManagerClient for RestManagerClient {
         })
     }
 
-    fn stop_server(&self) -> Result<()> {
+    fn stop(&self, tasks: TaskSpec) -> Result<()> {
         let mut stream = self.connect()?;
-        stream.send(RequestMessage::Stop)
+        let message = match tasks {
+            TaskSpec::All => RequestMessage::StopServer,
+            TaskSpec::List(task_list) => RequestMessage::StopTasks(task_list.clone()),
+        };
+        stream.send(message)
     }
 }
 

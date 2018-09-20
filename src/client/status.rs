@@ -25,6 +25,7 @@ mod test {
     use service::service::Service;
     use spectral::prelude::*;
     use std::collections::HashMap;
+    use tasks::TaskSpec;
     use Result;
 
     struct FakeManagerClient {
@@ -44,7 +45,7 @@ mod test {
             }
         }
 
-        fn stop_server(&self) -> Result<()> {
+        fn stop(&self, _task: TaskSpec) -> Result<()> {
             unimplemented!()
         }
     }

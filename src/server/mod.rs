@@ -37,7 +37,8 @@ pub trait ManagerServer {
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub enum RequestMessage {
     GetWorkers,
-    Stop,
+    StopServer,
+    StopTasks(Vec<String>),
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]

@@ -33,6 +33,7 @@ pub mod messaging;
 pub mod procfile;
 pub mod server;
 pub mod service;
+pub mod tasks;
 pub mod yamlize;
 
 /// A convenience type alias for a specialization of `Result` that uses `failure::Error` for
